@@ -26,15 +26,15 @@ All the code developed here was done with the support of [Cursor](https://cursor
 ### Project Delivery Plan
 
 #### 21.03.2026 - Planning
-- [ ] Planning
-  - [ ] Tasks Breakdown
-  - [ ] Date of the Deliverables
+- [X] Planning
+  - [X] Tasks Breakdown
+  - [X] Date of the Deliverables
 
 #### 21.03.2026 - Infrastructure Code
-- [ ] Infrastructure Code
-  - [ ] Terraform Code to deploy servers on Hetzner
-  - [ ] Ansible Code to deploy Kubernetes on the servers
-  - [ ] Ansible Code to deploy FluxCD on the cluster
+- [X] Infrastructure Code
+  - [X] Terraform Code to deploy servers on Hetzner
+  - [X] Ansible Code to deploy Kubernetes on the servers
+  - [X] Ansible Code to deploy FluxCD on the cluster
 
 #### 22.03.2026 - GitOps Code and Workflow
 - [ ] GitOps Code and Workflow
@@ -161,7 +161,6 @@ The secrets can be dynamically synced into the applications using the [External 
 
 ## Repository structure
 
-```yaml
 - `terraform/`: modular provisioning (`network`, `compute`, `nat-gateway`, `loadbalancer`, `kubernetes`, …) and `dev` / `prod` environments.
 - `ansible/`: idempotent roles to configure hosts and bootstrap Kubernetes with kubeadm and install FluxCD Operator.
 - `gitops/`: Flux manifests and workload kustomize trees separated by cluster and concern (see `gitops/README.md`).
