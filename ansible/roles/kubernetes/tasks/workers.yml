@@ -1,0 +1,18 @@
+---
+# Join command lives on the first kubeadm_control_plane host (set in control_plane.yml), not on localhost.
+- name: Validate join command is available
+  vars:
+    _k8s_cp: "{{ groups['kubeadm_control_plane'] | default([]) | first }}"
+  ansible.builtin.assert:
+    that:
+      - _k8s_cp | length > 0
+      - hostvars[_k8s_cp].kubeadm_join_command is defined
+      - hostvars[_k8s_cp].kubeadm_join_command | length > 0
+    fail_msg: "kubeadm_join_command is missing on {{ _k8s_cp }}. Run the control-plane play first (bootstrap-k8s.yml: Initialize control-plane)."
+
+- name: Join worker to cluster
+  vars:
+    _k8s_cp: "{{ groups['kubeadm_control_plane'] | default([]) | first }}"
+  ansible.builtin.command: "{{ hostvars[_k8s_cp].kubeadm_join_command }}"
+  args:
+    creates: /etc/kubernetes/kubelet.conf

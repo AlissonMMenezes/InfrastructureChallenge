@@ -1,0 +1,19 @@
+---
+- name: Install Flux CLI on all control-plane nodes
+  hosts: kubeadm_control_plane
+  become: true
+  tasks:
+    - name: Install Flux CLI from GitHub release
+      ansible.builtin.include_role:
+        name: fluxcd
+        tasks_from: cli.yml
+
+- name: Install Flux controllers into the cluster (single run)
+  hosts: kubeadm_control_plane
+  become: true
+  tasks:
+    - name: flux install and optional flux check
+      ansible.builtin.include_role:
+        name: fluxcd
+        tasks_from: cluster.yml
+      run_once: true

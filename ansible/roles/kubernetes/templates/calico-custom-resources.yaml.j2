@@ -1,0 +1,22 @@
+# Calico operator CRs — cidr must match kubeadm --pod-network-cidr (see roles/kubernetes/defaults/main.yml pod_network_cidr).
+# Upstream reference: https://github.com/projectcalico/calico/blob/master/manifests/custom-resources.yaml
+---
+apiVersion: operator.tigera.io/v1
+kind: Installation
+metadata:
+  name: default
+spec:
+  calicoNetwork:
+    ipPools:
+      - name: default-ipv4-ippool
+        blockSize: 26
+        cidr: {{ pod_network_cidr }}
+        encapsulation: VXLANCrossSubnet
+        natOutgoing: Enabled
+        nodeSelector: "{{ 'all()' }}"
+---
+apiVersion: operator.tigera.io/v1
+kind: APIServer
+metadata:
+  name: default
+spec: {}

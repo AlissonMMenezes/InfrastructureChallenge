@@ -1,0 +1,16 @@
+---
+galaxy_info:
+  role_name: fluxcd
+  author: InfrastructureChallenge
+  description: Install Flux CD (v2) CLI; flux install or flux bootstrap github on an existing Kubernetes cluster.
+  license: Apache-2.0
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Ubuntu
+    - name: Debian
+  galaxy_tags:
+    - kubernetes
+    - gitops
+    - flux
+
+dependencies: []

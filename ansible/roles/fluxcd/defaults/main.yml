@@ -1,0 +1,58 @@
+---
+# Flux v2 CLI release (https://github.com/fluxcd/flux2/releases) — no leading "v" in value.
+fluxcd_version: "2.4.0"
+
+# Cluster admin kubeconfig on the control-plane node (same as kubeadm).
+fluxcd_kubeconfig: /etc/kubernetes/admin.conf
+
+# Install flux binary to this path (from GitHub release tarball).
+fluxcd_cli_path: /usr/local/bin/flux
+
+# Install Image Automation: image-reflector-controller + image-automation-controller
+# (ImageRepository, ImagePolicy, ImageUpdateAutomation CRDs).
+fluxcd_image_automation: true
+
+# Additional components (comma-separated), merged with image automation when fluxcd_image_automation is true.
+# Example: "notification-controller" (rare; base install often already includes defaults)
+fluxcd_components_extra: ""
+
+# Pass --network-policy to flux install
+fluxcd_network_policy: false
+
+# Run flux install (set false to only install CLI). Ignored when fluxcd_github_bootstrap is true.
+fluxcd_cluster_install: true
+
+# Run flux check after install / GitHub bootstrap
+fluxcd_verify: true
+
+# --- GitHub bootstrap (flux bootstrap github) ---
+# When true, runs flux bootstrap github instead of flux install (deploys Flux + GitRepository/Kustomization sync).
+# Requires GITHUB_TOKEN on the Ansible controller (recommended) or fluxcd_github_token (Vault / -e). See README.
+fluxcd_github_bootstrap: false
+
+fluxcd_github_owner: ""
+fluxcd_github_repository: ""
+# Path in the repo for this cluster (Flux sync root). This monorepo uses gitops/clusters/<env>/.
+fluxcd_github_path: gitops/clusters/dev
+fluxcd_github_branch: main
+
+# User account repo (--personal); omit for GitHub organization.
+fluxcd_github_personal: false
+
+# Repository visibility (flux defaults to private).
+fluxcd_github_private: true
+
+# Use PAT from GITHUB_TOKEN / fluxcd_github_token instead of SSH deploy key (typical for automation).
+fluxcd_github_token_auth: true
+
+# GitHub Enterprise hostname (leave empty for github.com).
+fluxcd_github_hostname: ""
+
+# Pass --reconcile when the repo already exists and options should be reconciled.
+fluxcd_github_reconcile: false
+
+# Optional extra argv for flux bootstrap github (list of strings), e.g. ['--timeout', '10m'].
+fluxcd_github_bootstrap_extra_args: []
+
+# Prefer env GITHUB_TOKEN on the controller; set this when not using the environment (use Vault).
+fluxcd_github_token: ""

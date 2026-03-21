@@ -1,0 +1,6 @@
+---
+- name: Install Flux CLI from release tarball
+  ansible.builtin.include_tasks: cli.yml
+
+- name: Install Flux controllers and verify
+  ansible.builtin.include_tasks: cluster.yml

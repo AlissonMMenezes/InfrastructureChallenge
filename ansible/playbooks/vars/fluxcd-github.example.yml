@@ -1,0 +1,13 @@
+---
+# Do not commit real tokens. Prefer GITHUB_TOKEN in the environment or Ansible Vault for fluxcd_github_token.
+
+fluxcd_github_bootstrap: true
+fluxcd_github_owner: my-org
+fluxcd_github_repository: fleet-infra
+
+# Match this repo layout: bootstrap syncs Flux CRs under gitops/clusters/<env>/
+fluxcd_github_path: gitops/clusters/dev
+fluxcd_github_branch: main
+fluxcd_github_personal: false
+fluxcd_github_private: true
+fluxcd_github_token_auth: true

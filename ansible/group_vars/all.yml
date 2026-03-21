@@ -1,0 +1,15 @@
+# Pin remote Python so Ansible does not warn about discovered interpreters (e.g. python3.12 vs future defaults).
+ansible_python_interpreter: /usr/bin/python3
+
+k3s_version: "v1.30.2+k3s1"
+k3s_token: "change-me"
+cluster_cidr: "10.42.0.0/16"
+service_cidr: "10.43.0.0/16"
+
+# Must match Terraform module.kubernetes network_cidr (Hetzner private network). Used on bastion for UFW route rules.
+hetzner_private_network_cidr: "10.50.0.0/16"
+
+# Apt on private workers: prefer IPv4; set proxies if nodes have no direct egress.
+apt_force_ipv4: true
+apt_http_proxy: ""
+apt_https_proxy: ""

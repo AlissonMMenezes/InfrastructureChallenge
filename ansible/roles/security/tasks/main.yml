@@ -1,0 +1,129 @@
+---
+- name: Install security packages
+  ansible.builtin.apt:
+    name:
+      - ufw
+      - fail2ban
+    state: present
+    update_cache: false
+
+- name: Allow SSH through firewall
+  community.general.ufw:
+    rule: allow
+    name: OpenSSH
+
+# Host-local ICMP (ping/traceroute to the jump; IPv6 if present).
+# community.general.ufw rejects proto icmp / ipv6-icmp (choices are tcp, udp, etc. only).
+- name: Allow ICMP to bastion / NAT host (IPv4)
+  ansible.builtin.command: ufw allow in proto icmp
+  when: "'bastion' in group_names"
+  register: _ufw_icmp_bastion_v4
+  changed_when: "'added' in (_ufw_icmp_bastion_v4.stdout | default('') | lower) or 'rules updated' in (_ufw_icmp_bastion_v4.stdout | default('') | lower)"
+  failed_when: _ufw_icmp_bastion_v4.rc != 0
+
+- name: Allow IPv6-ICMP to bastion / NAT host
+  ansible.builtin.command: ufw allow in proto ipv6-icmp
+  when: "'bastion' in group_names"
+  register: _ufw_icmp_bastion_v6
+  changed_when: "'added' in (_ufw_icmp_bastion_v6.stdout | default('') | lower) or 'rules updated' in (_ufw_icmp_bastion_v6.stdout | default('') | lower)"
+  failed_when: _ufw_icmp_bastion_v6.rc != 0
+
+- name: Allow Kubernetes API on control-plane
+  community.general.ufw:
+    rule: allow
+    port: "6443"
+    proto: tcp
+  when: "'kubeadm_control_plane' in group_names"
+
+- name: Allow kubelet metrics endpoint within cluster
+  community.general.ufw:
+    rule: allow
+    port: "10250"
+    proto: tcp
+  when: "'bastion' not in group_names"
+
+# Calico VXLAN (IANA); Flannel often used 8472 — not required for Calico default encap.
+- name: Allow VXLAN traffic for Calico (UDP 4789)
+  community.general.ufw:
+    rule: allow
+    port: "4789"
+    proto: udp
+  when: "'bastion' not in group_names"
+
+- name: Allow BGP for Calico (node-to-node, TCP 179)
+  community.general.ufw:
+    rule: allow
+    port: "179"
+    proto: tcp
+  when: "'bastion' not in group_names"
+
+# ICMP from any source (UFW default denies incoming otherwise).
+- name: Allow ICMP from anywhere to Kubernetes nodes (IPv4)
+  ansible.builtin.command: ufw allow in proto icmp
+  when: "'bastion' not in group_names"
+  register: _ufw_icmp_k8s_v4
+  changed_when: "'added' in (_ufw_icmp_k8s_v4.stdout | default('') | lower) or 'rules updated' in (_ufw_icmp_k8s_v4.stdout | default('') | lower)"
+  failed_when: _ufw_icmp_k8s_v4.rc != 0
+
+- name: Allow IPv6-ICMP from anywhere to Kubernetes nodes
+  ansible.builtin.command: ufw allow in proto ipv6-icmp
+  when: "'bastion' not in group_names"
+  register: _ufw_icmp_k8s_v6
+  changed_when: "'added' in (_ufw_icmp_k8s_v6.stdout | default('') | lower) or 'rules updated' in (_ufw_icmp_k8s_v6.stdout | default('') | lower)"
+  failed_when: _ufw_icmp_k8s_v6.rc != 0
+
+# UFW drops forwarded traffic by default; jump/bastion must forward for cluster NAT egress.
+- name: Allow UFW forwarded traffic on jump/NAT host
+  ansible.builtin.lineinfile:
+    path: /etc/default/ufw
+    regexp: '^DEFAULT_FORWARD_POLICY='
+    line: 'DEFAULT_FORWARD_POLICY="ACCEPT"'
+    create: false
+  when: "'bastion' in group_names"
+
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+
+# UFW can block forwarded traffic unless explicitly allowed (even with DEFAULT_FORWARD_POLICY=ACCEPT on some setups).
+- name: Detect private NIC for Hetzner network (bastion / NAT)
+  ansible.builtin.shell: |
+    set -euo pipefail
+    ip -4 route show to "{{ hetzner_private_network_cidr }}" | head -1 | awk '{for(i=1;i<=NF;i++)if($i=="dev"){print $(i+1);exit}}'
+  args:
+    executable: /bin/bash
+  register: nat_private_iface
+  changed_when: false
+  when: "'bastion' in group_names"
+
+- name: Allow UFW forwarded traffic private network → WAN (NAT egress)
+  ansible.builtin.shell: |
+    set -euo pipefail
+    WAN=$(ip -4 route show default | head -1 | awk '{for(i=1;i<=NF;i++)if($i=="dev"){print $(i+1);exit}}')
+    PRIV="{{ nat_private_iface.stdout | trim }}"
+    if [ -z "$PRIV" ] || [ -z "$WAN" ]; then
+      echo "Could not detect PRIV or WAN interface (PRIV=$PRIV WAN=$WAN)" >&2
+      exit 1
+    fi
+    ufw route allow in on "$PRIV" out on "$WAN" comment 'hetzner-nat-cluster-egress' || true
+    ufw route allow proto icmp comment 'hetzner-nat-forward-icmp-any' || true
+  args:
+    executable: /bin/bash
+  when:
+    - "'bastion' in group_names"
+    - nat_private_iface is not skipped
+    - nat_private_iface.stdout | default('') | trim | length > 0
+  changed_when: true
+
+# Enabling UFW reapplies its own iptables rules and removes MASQUERADE from cloud-init.
+- name: Re-apply NAT iptables after UFW (jump host or any NAT gateway)
+  ansible.builtin.command: /usr/local/sbin/hetzner-nat-gateway.sh
+  when: nat_gateway_script.stat.exists
+  changed_when: true
+
+- name: Enable fail2ban service
+  ansible.builtin.service:
+    name: fail2ban
+    state: started
+    enabled: true

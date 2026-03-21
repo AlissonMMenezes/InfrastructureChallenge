@@ -1,0 +1,40 @@
+---
+# Install the flux CLI from the official GitHub release tarball (linux arch).
+- name: Map system architecture to Flux release artifact name
+  ansible.builtin.set_fact:
+    fluxcd_cli_arch: >-
+      {{
+        {
+          'x86_64': 'amd64',
+          'aarch64': 'arm64',
+          'armv7l': 'arm',
+          'ppc64le': 'ppc64le',
+          's390x': 's390x'
+        }.get(ansible_facts['architecture'], ansible_facts['architecture'])
+      }}
+
+- name: Create unpack directory for Flux CLI archive
+  ansible.builtin.file:
+    path: "/tmp/flux-extract-{{ fluxcd_version }}"
+    state: directory
+    mode: "0755"
+
+- name: Download Flux CLI archive
+  ansible.builtin.get_url:
+    url: "https://github.com/fluxcd/flux2/releases/download/v{{ fluxcd_version }}/flux_{{ fluxcd_version }}_linux_{{ fluxcd_cli_arch }}.tar.gz"
+    dest: "/tmp/flux_{{ fluxcd_version }}_linux_{{ fluxcd_cli_arch }}.tar.gz"
+    mode: "0644"
+    timeout: 120
+
+- name: Unpack Flux CLI archive into a versioned directory
+  ansible.builtin.unarchive:
+    src: "/tmp/flux_{{ fluxcd_version }}_linux_{{ fluxcd_cli_arch }}.tar.gz"
+    dest: "/tmp/flux-extract-{{ fluxcd_version }}"
+    remote_src: true
+
+- name: Install flux binary to PATH
+  ansible.builtin.copy:
+    src: "/tmp/flux-extract-{{ fluxcd_version }}/flux"
+    dest: "{{ fluxcd_cli_path }}"
+    mode: "0755"
+    remote_src: true

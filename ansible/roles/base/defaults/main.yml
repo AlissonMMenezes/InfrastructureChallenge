@@ -1,0 +1,8 @@
+---
+# If nodes have no direct internet (e.g. private-only workers), set a proxy reachable from the worker,
+# e.g. HTTP proxy on the bastion: "http://10.50.1.10:3128"
+apt_http_proxy: ""
+apt_https_proxy: ""
+
+apt_update_retries: 5
+apt_update_delay: 15

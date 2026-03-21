@@ -1,0 +1,182 @@
+---
+# Aligns with upstream Kubernetes apt install docs for the configured minor (default v1.35).
+# https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
+
+- name: Ensure apt keyrings directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+
+- name: Update apt package index (before Kubernetes repo prerequisites)
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 0
+
+- name: Install packages required for the Kubernetes apt repository
+  ansible.builtin.apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gpg
+      - gnupg
+      - dirmngr
+    state: present
+
+- name: Remove legacy ASCII key if present (migrated to dearmored .gpg keyring)
+  ansible.builtin.file:
+    path: /etc/apt/keyrings/kubernetes-apt-keyring.asc
+    state: absent
+
+# Do not use creates: here — stale keyrings cause NO_PUBKEY (e.g. 234654DA9A296436) after key rotation.
+# Avoid curl|gpg pipes: gpg without --batch/--no-tty can block on gpg-agent/pinentry over SSH; get_url adds timeouts.
+- name: Download pkgs.k8s.io Release.key
+  ansible.builtin.get_url:
+    url: "https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_version }}/deb/Release.key"
+    dest: /tmp/ansible-kubernetes-pkgs-Release.key
+    mode: "0644"
+    force: true
+    timeout: "{{ kubernetes_apt_key_download_timeout }}"
+    validate_certs: true
+  register: _k8s_pkgs_release_get
+
+- name: Fail fast if Release.key download was not HTTP 200
+  ansible.builtin.assert:
+    that:
+      - (_k8s_pkgs_release_get.status_code | default(200)) == 200
+    fail_msg: >-
+      pkgs.k8s.io returned HTTP {{ _k8s_pkgs_release_get.status_code | default('unknown') }} for Release.key.
+      Check kubernetes_version (must be a real minor, e.g. 1.30, 1.31) and network egress.
+
+# mktemp creates an empty file; gpg -o refuses that → "File exists". OBS may serve armored or binary key.
+- name: Install pkgs.k8s.io apt keyring from Release.key (dearmor or copy binary)
+  ansible.builtin.shell: |
+    set -euo pipefail
+    src=/tmp/ansible-kubernetes-pkgs-Release.key
+    [ -s "$src" ] || { echo "Release.key is empty." >&2; exit 1; }
+
+    GNUPGHOME="$(mktemp -d)"
+    export GNUPGHOME
+    trap 'rm -rf "$GNUPGHOME"' EXIT
+
+    tmp_out="$(mktemp)"
+    rm -f "$tmp_out"
+
+    if gpg --batch --no-tty --dearmor -o "$tmp_out" "$src" 2>/dev/null && [ -s "$tmp_out" ]; then
+      :
+    else
+      rm -f "$tmp_out"
+      cp "$src" "$tmp_out"
+      if ! gpg --batch --no-tty --list-packets "$tmp_out" >/dev/null 2>&1; then
+        echo "Release.key is not valid OpenPGP (often a 404/HTML page — fix kubernetes_version or proxy)." >&2
+        head -c 500 "$src" | tr -d '\000' | head -c 500 >&2 || true
+        echo >&2
+        exit 1
+      fi
+    fi
+
+    install -m 0644 "$tmp_out" /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    rm -f "$tmp_out"
+  args:
+    executable: /bin/bash
+  changed_when: true
+
+# InRelease for pkgs.k8s.io is signed with OBS keys; ensure subkey used by your minor is present.
+- name: Ensure pkgs.k8s.io signing key is available (fallback for NO_PUBKEY)
+  ansible.builtin.command:
+    argv:
+      - gpg
+      - --batch
+      - --no-tty
+      - --no-default-keyring
+      - --keyring
+      - /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+      - --keyserver
+      - hkps://keys.openpgp.org
+      - --keyserver-options
+      - "{{ kubernetes_apt_gpg_keyserver_options }}"
+      - --recv-keys
+      - "{{ kubernetes_apt_isv_signing_key_id }}"
+  register: _k8s_gpg_recv
+  when:
+    - kubernetes_apt_enable_keyserver_fallback | bool
+    - kubernetes_apt_isv_signing_key_id | length > 0
+  changed_when: >-
+    'imported' in (_k8s_gpg_recv.stderr | default('') | lower)
+    or 'new key' in (_k8s_gpg_recv.stderr | default('') | lower)
+  failed_when: _k8s_gpg_recv.rc != 0
+
+# pkgs.k8s.io is signed with the OBS key from Release.key only.
+# One-line deb [signed-by=…] …/core:/stable:/…/ can break apt 2.7+ ("Malformed entry … [option] not assignment")
+# because of colons in the URI. Use deb822 .sources (Signed-By on its own line) per Debian/Ubuntu guidance.
+- name: Remove legacy kubernetes.list if present (replaced by deb822 .sources)
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/kubernetes.list
+    state: absent
+
+- name: Add Kubernetes apt repository (deb822 sources format)
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/kubernetes.sources
+    mode: "0644"
+    content: |
+      Enabled: yes
+      Types: deb
+      URIs: https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_version }}/deb/
+      Suites: /
+      Signed-By: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+- name: Update apt package index after adding Kubernetes repository
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 0
+
+- name: Install kubelet, kubeadm, kubectl, and cri-tools (crictl for containerd)
+  ansible.builtin.apt:
+    name:
+      - kubelet
+      - kubeadm
+      - kubectl
+      - cri-tools
+    state: present
+
+- name: Pin kubelet, kubeadm, and kubectl versions (apt-mark hold)
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop:
+    - kubelet
+    - kubeadm
+    - kubectl
+
+- name: Ensure kubelet systemd drop-in directory exists
+  ansible.builtin.file:
+    path: /etc/systemd/system/kubelet.service.d
+    state: directory
+    mode: "0755"
+
+- name: Point kubelet at containerd CRI and match systemd cgroups
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/kubelet.service.d/20-containerd-cri.conf
+    mode: "0644"
+    content: |
+      [Service]
+      Environment="KUBELET_EXTRA_ARGS=--container-runtime-endpoint=unix:///run/containerd/containerd.sock --cgroup-driver=systemd"
+  notify: Reload systemd and restart kubelet
+
+- name: Default crictl to containerd socket
+  ansible.builtin.copy:
+    dest: /etc/crictl.yaml
+    mode: "0644"
+    content: |
+      runtime-endpoint: unix:///run/containerd/containerd.sock
+      image-endpoint: unix:///run/containerd/containerd.sock
+
+- name: Flush handlers (kubelet picks up drop-in before kubeadm init/join)
+  ansible.builtin.meta: flush_handlers
+
+- name: Enable and start kubelet (systemctl enable --now kubelet)
+  ansible.builtin.service:
+    name: kubelet
+    enabled: true
+    state: started

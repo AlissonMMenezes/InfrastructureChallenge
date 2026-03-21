@@ -1,0 +1,110 @@
+---
+# Requires flux CLI (cli.yml) and a valid kubeconfig on this host.
+- name: Ensure kubeconfig exists (cluster must be bootstrapped)
+  ansible.builtin.stat:
+    path: "{{ fluxcd_kubeconfig }}"
+  register: fluxcd_kubeconfig_stat
+
+- name: Fail when kubeconfig is missing
+  ansible.builtin.assert:
+    that:
+      - fluxcd_kubeconfig_stat.stat.exists | default(false)
+    fail_msg: "{{ fluxcd_kubeconfig }} not found. Bootstrap the cluster (kubeadm) before installing Flux."
+
+- name: Build effective --components-extra list (image automation + user extras)
+  ansible.builtin.set_fact:
+    fluxcd_components_extra_effective: >-
+      {{
+        (
+          (fluxcd_image_automation_controllers if fluxcd_image_automation | bool else [])
+          + (fluxcd_components_extra | default('') | split(',') | map('trim') | list | reject('equalto', '') | list)
+        ) | unique | sort | join(',')
+      }}
+  vars:
+    fluxcd_image_automation_controllers:
+      - image-reflector-controller
+      - image-automation-controller
+
+- name: Set flux install argv
+  ansible.builtin.set_fact:
+    fluxcd_install_argv: "{{ [fluxcd_cli_path, 'install'] + (['--network-policy'] if fluxcd_network_policy | bool else []) + (['--components-extra=' ~ (fluxcd_components_extra_effective | trim)] if (fluxcd_components_extra_effective | default('') | trim | length) > 0 else []) }}"
+
+- name: Resolve GitHub token for flux bootstrap (variable or controller environment)
+  ansible.builtin.set_fact:
+    fluxcd_github_token_effective: >-
+      {{
+        (fluxcd_github_token | default('') | trim)
+        if (fluxcd_github_token | default('') | trim | length > 0)
+        else (lookup('ansible.builtin.env', 'GITHUB_TOKEN', default='') | trim)
+      }}
+  when: fluxcd_github_bootstrap | bool
+
+- name: Assert GitHub bootstrap configuration
+  ansible.builtin.assert:
+    that:
+      - fluxcd_github_owner | default('') | trim | length > 0
+      - fluxcd_github_repository | default('') | trim | length > 0
+      - fluxcd_github_path | default('') | trim | length > 0
+      - fluxcd_github_token_effective | default('') | length > 0
+    fail_msg: >-
+      GitHub bootstrap needs fluxcd_github_owner, fluxcd_github_repository, fluxcd_github_path, and a token:
+      export GITHUB_TOKEN=... on the Ansible controller, or set fluxcd_github_token (e.g. Vault / -e @secrets.yml).
+  when: fluxcd_github_bootstrap | bool
+
+- name: Set flux bootstrap github argv
+  ansible.builtin.set_fact:
+    fluxcd_bootstrap_github_argv: "{{ [fluxcd_cli_path, 'bootstrap', 'github', '--owner', fluxcd_github_owner | trim, '--repository', fluxcd_github_repository | trim, '--branch', fluxcd_github_branch | trim, '--path', fluxcd_github_path | trim] + (['--personal'] if fluxcd_github_personal | bool else []) + (['--private=true'] if fluxcd_github_private | bool else ['--private=false']) + (['--hostname', fluxcd_github_hostname | trim] if (fluxcd_github_hostname | default('') | trim | length) > 0 else []) + (['--token-auth'] if fluxcd_github_token_auth | bool else []) + (['--reconcile'] if fluxcd_github_reconcile | bool else []) + (['--network-policy'] if fluxcd_network_policy | bool else ['--network-policy=false']) + (['--components-extra=' ~ (fluxcd_components_extra_effective | trim)] if (fluxcd_components_extra_effective | default('') | trim | length) > 0 else []) + (fluxcd_github_bootstrap_extra_args | default([])) }}"
+  when: fluxcd_github_bootstrap | bool
+
+- name: Bootstrap Flux with GitHub (flux bootstrap github)
+  ansible.builtin.command:
+    argv: "{{ fluxcd_bootstrap_github_argv }}"
+  environment:
+    KUBECONFIG: "{{ fluxcd_kubeconfig }}"
+    GITHUB_TOKEN: "{{ fluxcd_github_token_effective }}"
+  register: fluxcd_bootstrap_result
+  when: fluxcd_github_bootstrap | bool
+  changed_when: >-
+    fluxcd_bootstrap_result.stdout is defined and (
+      'created' in fluxcd_bootstrap_result.stdout | lower
+      or 'configured' in fluxcd_bootstrap_result.stdout | lower
+      or 'installed' in fluxcd_bootstrap_result.stdout | lower
+      or 'bootstrap' in fluxcd_bootstrap_result.stdout | lower
+      or 'committed' in fluxcd_bootstrap_result.stdout | lower
+    )
+  no_log: true
+
+- name: Install Flux controllers into the cluster (flux install)
+  ansible.builtin.command:
+    argv: "{{ fluxcd_install_argv }}"
+  environment:
+    KUBECONFIG: "{{ fluxcd_kubeconfig }}"
+  register: fluxcd_install_result
+  when:
+    - fluxcd_cluster_install | bool
+    - not (fluxcd_github_bootstrap | bool)
+  changed_when: >-
+    fluxcd_install_result.stdout is defined and (
+      'created' in fluxcd_install_result.stdout | lower
+      or 'configured' in fluxcd_install_result.stdout | lower
+      or 'installed' in fluxcd_install_result.stdout | lower
+    )
+
+- name: Run flux check
+  ansible.builtin.command:
+    argv:
+      - "{{ fluxcd_cli_path }}"
+      - check
+  environment:
+    KUBECONFIG: "{{ fluxcd_kubeconfig }}"
+  register: fluxcd_check_result
+  when: fluxcd_verify | bool
+  changed_when: false
+
+- name: Show flux check output
+  ansible.builtin.debug:
+    msg: "{{ fluxcd_check_result.stdout_lines | default([]) }}"
+  when:
+    - fluxcd_verify | bool
+    - fluxcd_check_result is defined
+    - fluxcd_check_result.stdout_lines is defined

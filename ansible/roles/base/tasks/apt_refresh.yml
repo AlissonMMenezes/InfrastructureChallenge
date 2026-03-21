@@ -1,0 +1,9 @@
+---
+- name: Refresh apt package index
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 0
+  register: apt_refresh
+  retries: "{{ apt_update_retries | int }}"
+  delay: "{{ apt_update_delay | int }}"
+  until: apt_refresh is succeeded

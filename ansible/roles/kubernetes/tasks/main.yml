@@ -1,0 +1,17 @@
+---
+# Order: cluster identity checks → containerd → Kubernetes packages + kubelet.
+- name: Validate unique node identity (MACs + product_uuid) across kubeadm_cluster
+  ansible.builtin.include_tasks: validate_cluster_node_identity.yml
+  when: kubernetes_validate_unique_node_identity | bool
+
+- name: Pre-check control-plane — API port must be free before Kubernetes install
+  ansible.builtin.include_tasks: precheck_control_plane_ports.yml
+  when:
+    - kubernetes_precheck_apiserver_port_free | bool
+    - "'kubeadm_control_plane' in group_names"
+
+- name: Install and configure containerd (CRI)
+  ansible.builtin.include_tasks: containerd.yml
+
+- name: Install Kubernetes packages and kubelet (containerd)
+  ansible.builtin.include_tasks: kubernetes_packages.yml

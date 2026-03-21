@@ -1,0 +1,36 @@
+---
+# Before first kubeadm init, 6443 must be free. After bootstrap, kube-apiserver listens there — skip on re-runs.
+- name: Detect existing kubeadm control-plane (admin kubeconfig)
+  ansible.builtin.stat:
+    path: /etc/kubernetes/admin.conf
+  register: kubernetes_precheck_admin_conf
+
+- name: Ensure Kubernetes API port is not already in use
+  when:
+    - not (kubernetes_precheck_apiserver_port_skip_when_bootstrapped | bool and kubernetes_precheck_admin_conf.stat.exists | default(false))
+  ansible.builtin.shell: |
+    set -euo pipefail
+    port="{{ kubernetes_apiserver_port | int }}"
+    if ! command -v ss >/dev/null 2>&1 && ! command -v netstat >/dev/null 2>&1; then
+      echo "Neither ss nor netstat found; cannot verify TCP port ${port} is free." >&2
+      exit 1
+    fi
+    in_use=0
+    if command -v ss >/dev/null 2>&1; then
+      if ss -H -lntp 2>/dev/null | awk '{print $4}' | grep -qE "(:|\\])${port}$"; then
+        in_use=1
+      fi
+    elif command -v netstat >/dev/null 2>&1; then
+      if netstat -lntp 2>/dev/null | awk '{print $4}' | grep -qE "(:|\\])${port}$"; then
+        in_use=1
+      fi
+    fi
+    if [ "$in_use" -eq 1 ]; then
+      echo "Something is already listening on TCP port ${port} (kube-apiserver default). Free it or align kubernetes_apiserver_port with kubeadm." >&2
+      ss -lntp 2>/dev/null | grep -E "(:|\\])${port}\\b" >&2 || netstat -lntp 2>/dev/null | grep "${port}" >&2 || true
+      exit 1
+    fi
+    exit 0
+  args:
+    executable: /bin/bash
+  changed_when: false

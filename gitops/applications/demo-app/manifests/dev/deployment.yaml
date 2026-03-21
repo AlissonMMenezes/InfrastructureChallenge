@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-api
+  namespace: app-dev
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: demo-api
+  template:
+    metadata:
+      labels:
+        app: demo-api
+    spec:
+      containers:
+        - name: demo-api
+          image: ghcr.io/example/demo-api:0.1.0
+          ports:
+            - containerPort: 8080
+          env:
+            - name: DB_HOST
+              value: app-db-rw.data-dev.svc.cluster.local
+            - name: DB_PORT
+              value: "5432"
+            - name: DB_NAME
+              value: app
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: app-db-app
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: app-db-app
+                  key: password

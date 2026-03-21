@@ -1,0 +1,8 @@
+# Prod cluster: Flux GitOps entry (use with `flux bootstrap github --path=./gitops/clusters/prod`).
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../operators/postgres/helm-repository-cnpg.yaml
+  - ../../operators/postgres/helm-release-cnpg.yaml
+  - ../../operators/postgres/flux-kustomization-cluster-prod.yaml
+  - ../../applications/demo-app/flux-kustomization-prod.yaml

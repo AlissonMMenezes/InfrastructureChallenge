@@ -1,0 +1,46 @@
+---
+# Expects kubernetes_version on [kubeadm_cluster:vars] in inventory (or group_vars/kubeadm_cluster.yml); role defaults are a fallback.
+- name: Prepare all Kubernetes nodes
+  hosts: kubeadm_cluster
+  become: true
+  any_errors_fatal: true
+  roles:
+    - base
+    - kubernetes
+
+- name: Initialize control-plane
+  hosts: kubeadm_control_plane
+  become: true
+  tasks:
+    - name: Initialize kubeadm on control-plane
+      ansible.builtin.include_role:
+        name: kubernetes
+        tasks_from: control_plane.yml
+
+- name: Join workers
+  hosts: kubeadm_workers
+  become: true
+  any_errors_fatal: true
+  tasks:
+    - name: Join worker nodes
+      ansible.builtin.include_role:
+        name: kubernetes
+        tasks_from: workers.yml
+
+- name: Install CNI plugin (Calico)
+  hosts: kubeadm_control_plane
+  become: true
+  tasks:
+    - name: Install Calico CNI (Tigera operator)
+      ansible.builtin.include_role:
+        name: kubernetes
+        tasks_from: cni.yml
+
+- name: Verify Kubernetes is reachable (kubectl / API)
+  hosts: kubeadm_control_plane
+  become: true
+  tasks:
+    - name: Wait for API and list nodes
+      ansible.builtin.include_role:
+        name: kubernetes
+        tasks_from: verify_cluster.yml
