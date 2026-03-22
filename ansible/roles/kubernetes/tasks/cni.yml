@@ -1,25 +1,23 @@
 ---
-# kubernetes.core.k8s / kubectl use admin kubeconfig on the control-plane node.
-- name: Install Python Kubernetes client for kubernetes.core
-  ansible.builtin.apt:
-    name: python3-kubernetes
+# Tigera operator: server-side apply avoids last-applied-configuration >256KiB on huge CRDs.
+- name: Apply Tigera Calico operator manifest (server-side apply)
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubernetes_admin_kubeconfig }}"
     state: present
-    update_cache: false
+    src: "{{ kubernetes_calico_tigera_operator_manifest_url }}"
+    apply: true
+    server_side_apply:
+      field_manager: "{{ kubernetes_calico_operator_field_manager }}"
+      force_conflicts: true
+  when: kubernetes_calico_operator_server_side_apply | bool
 
-# Tigera operator + Calico (replaces Flannel). pod_network_cidr must match kubeadm init.
-- name: Apply Tigera Calico operator manifest
-  ansible.builtin.command:
-    argv:
-      - kubectl
-      - apply
-      - -f
-      - "{{ kubernetes_calico_tigera_operator_manifest_url }}"
-  environment:
-    KUBECONFIG: /etc/kubernetes/admin.conf
-  register: kubernetes_calico_operator_apply
-  changed_when: >-
-    'created' in kubernetes_calico_operator_apply.stdout | default('')
-    or 'configured' in kubernetes_calico_operator_apply.stdout | default('')
+- name: Apply Tigera Calico operator manifest (client-side apply)
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubernetes_admin_kubeconfig }}"
+    state: present
+    src: "{{ kubernetes_calico_tigera_operator_manifest_url }}"
+    apply: true
+  when: not (kubernetes_calico_operator_server_side_apply | bool)
 
 - name: Render Calico Installation / APIServer custom resources
   ansible.builtin.template:
@@ -28,49 +26,64 @@
     mode: "0644"
 
 - name: Apply Calico custom resources
-  ansible.builtin.command: kubectl apply -f /tmp/calico-custom-resources.yaml
-  environment:
-    KUBECONFIG: /etc/kubernetes/admin.conf
-  register: kubernetes_calico_cr_apply
-  changed_when: >-
-    'created' in kubernetes_calico_cr_apply.stdout | default('')
-    or 'configured' in kubernetes_calico_cr_apply.stdout | default('')
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubernetes_admin_kubeconfig }}"
+    state: present
+    src: /tmp/calico-custom-resources.yaml
+    apply: true
 
-- name: Wait for Tigera operator deployment
-  ansible.builtin.command:
-    cmd: >-
-      kubectl wait deployment tigera-operator -n tigera-operator
-      --for=condition=Available=True --timeout={{ kubernetes_calico_wait_operator_timeout }}s
-  environment:
-    KUBECONFIG: /etc/kubernetes/admin.conf
+- name: Wait for Tigera operator Deployment Available
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubernetes_admin_kubeconfig }}"
+    api_version: apps/v1
+    kind: Deployment
+    name: tigera-operator
+    namespace: tigera-operator
+    wait: true
+    wait_sleep: 5
+    wait_timeout: "{{ kubernetes_calico_wait_operator_timeout }}"
+    wait_condition:
+      type: Available
+      status: "True"
   changed_when: false
 
 - name: Wait until calico-system namespace exists
-  ansible.builtin.command:
-    argv:
-      - kubectl
-      - get
-      - ns
-      - calico-system
-  environment:
-    KUBECONFIG: /etc/kubernetes/admin.conf
-  register: kubernetes_calico_ns_check
-  until: kubernetes_calico_ns_check.rc == 0
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubernetes_admin_kubeconfig }}"
+    api_version: v1
+    kind: Namespace
+    name: calico-system
+  register: kubernetes_calico_ns_info
+  until: kubernetes_calico_ns_info.resources | length > 0
   retries: "{{ kubernetes_calico_wait_calico_namespace_retries }}"
   delay: "{{ kubernetes_calico_wait_calico_namespace_delay }}"
   changed_when: false
 
-- name: Wait for Calico pods in calico-system
-  ansible.builtin.command:
-    argv:
-      - kubectl
-      - wait
-      - pods
-      - -n
-      - calico-system
-      - --all
-      - --for=condition=Ready
-      - --timeout={{ kubernetes_calico_wait_calico_timeout }}s
-  environment:
-    KUBECONFIG: /etc/kubernetes/admin.conf
+- name: Discover Calico pods in calico-system
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubernetes_admin_kubeconfig }}"
+    api_version: v1
+    kind: Pod
+    namespace: calico-system
+  register: kubernetes_calico_pods_list
+  until: kubernetes_calico_pods_list.resources | length > 0
+  retries: "{{ kubernetes_calico_wait_calico_namespace_retries }}"
+  delay: "{{ kubernetes_calico_wait_calico_namespace_delay }}"
+  changed_when: false
+
+- name: Wait for each Calico pod Ready
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubernetes_admin_kubeconfig }}"
+    api_version: v1
+    kind: Pod
+    name: "{{ item.metadata.name }}"
+    namespace: calico-system
+    wait: true
+    wait_sleep: 5
+    wait_timeout: "{{ kubernetes_calico_wait_calico_timeout }}"
+    wait_condition:
+      type: Ready
+      status: "True"
+  loop: "{{ kubernetes_calico_pods_list.resources }}"
+  when: kubernetes_calico_pods_list.resources | length > 0
   changed_when: false

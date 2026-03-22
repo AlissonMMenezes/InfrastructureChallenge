@@ -1,26 +1,36 @@
 ---
-# Run on control-plane after CNI; uses admin kubeconfig (same as root/non-root kubectl once ~/.kube/config exists).
-- name: Wait for Kubernetes API to accept kubectl (control plane ready)
-  ansible.builtin.command: kubectl --kubeconfig=/etc/kubernetes/admin.conf get --raw=/readyz
-  register: _k8s_readyz
-  until: _k8s_readyz.rc == 0
+# Phase: verify (play: kubeadm_control_plane, tasks_from: verify_cluster.yml). Needs python3-kubernetes from cni.yml.
+- name: Wait for Kubernetes API (Namespace default reachable)
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubernetes_admin_kubeconfig }}"
+    api_version: v1
+    kind: Namespace
+    name: default
+  register: kubernetes_verify_api
+  until: kubernetes_verify_api.resources | default([]) | length > 0
   retries: "{{ kubernetes_verify_api_retries | int }}"
   delay: "{{ kubernetes_verify_api_delay | int }}"
   changed_when: false
 
-- name: Wait for at least one node in kubectl output
-  ansible.builtin.command: kubectl --kubeconfig=/etc/kubernetes/admin.conf get nodes --no-headers
-  register: _k8s_nodes
-  until: _k8s_nodes.rc == 0 and _k8s_nodes.stdout | default('') | trim | length > 0
+- name: Wait for at least one Node to register
+  kubernetes.core.k8s_info:
+    kubeconfig: "{{ kubernetes_admin_kubeconfig }}"
+    api_version: v1
+    kind: Node
+  register: kubernetes_verify_nodes
+  until: kubernetes_verify_nodes.resources | default([]) | length > 0
   retries: "{{ kubernetes_verify_nodes_retries | int }}"
   delay: "{{ kubernetes_verify_nodes_delay | int }}"
   changed_when: false
 
 - name: Show cluster nodes (playbook verification)
-  ansible.builtin.command: kubectl --kubeconfig=/etc/kubernetes/admin.conf get nodes -o wide
-  register: _k8s_nodes_wide
-  changed_when: false
-
-- name: Print kubectl get nodes
   ansible.builtin.debug:
-    msg: "{{ _k8s_nodes_wide.stdout_lines }}"
+    msg: >-
+      node={{ item.metadata.name }}
+      ready={{ item.status.conditions | default([]) | selectattr('type', 'equalto', 'Ready') | map(attribute='status') | first | default('Unknown') }}
+      internal_ip={{ item.status.addresses | default([]) | selectattr('type', 'equalto', 'InternalIP') | map(attribute='address') | first | default('n/a') }}
+      hostname={{ item.status.addresses | default([]) | selectattr('type', 'equalto', 'Hostname') | map(attribute='address') | first | default('n/a') }}
+  loop: "{{ kubernetes_verify_nodes.resources }}"
+  loop_control:
+    label: "{{ item.metadata.name }}"
+  changed_when: false

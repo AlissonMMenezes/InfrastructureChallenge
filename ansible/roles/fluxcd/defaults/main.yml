@@ -8,13 +8,17 @@ fluxcd_kubeconfig: /etc/kubernetes/admin.conf
 # Install flux binary to this path (from GitHub release tarball).
 fluxcd_cli_path: /usr/local/bin/flux
 
-# Install Image Automation: image-reflector-controller + image-automation-controller
-# (ImageRepository, ImagePolicy, ImageUpdateAutomation CRDs).
+# When true, merge fluxcd_image_automation_components into --components-extra= (ImageRepository / ImagePolicy / ImageUpdateAutomation).
 fluxcd_image_automation: true
 
-# Additional components (comma-separated), merged with image automation when fluxcd_image_automation is true.
-# Example: "notification-controller" (rare; base install often already includes defaults)
-fluxcd_components_extra: ""
+# Controller names added when fluxcd_image_automation is true. Override or extend this list (e.g. add another optional controller name).
+fluxcd_image_automation_components:
+  - image-reflector-controller
+  - image-automation-controller
+
+# Additional controllers for flux install / flux bootstrap --components-extra= (merged with image automation list above, deduped).
+# Prefer a YAML list, e.g. [source-watcher]. A comma-separated string is also accepted for inventory convenience.
+fluxcd_components_extra: []
 
 # Pass --network-policy to flux install
 fluxcd_network_policy: false
@@ -45,6 +49,10 @@ fluxcd_github_private: true
 # Use PAT from GITHUB_TOKEN / fluxcd_github_token instead of SSH deploy key (typical for automation).
 fluxcd_github_token_auth: true
 
+# SSH / deploy-key bootstrap only: pass --read-write-key so the GitHub deploy key can push (ImageUpdateAutomation).
+# Ignored when fluxcd_github_token_auth is true — then GITHUB_TOKEN must allow pushes (classic: repo; fine-grained: Contents read/write).
+fluxcd_github_read_write_key: true
+
 # GitHub Enterprise hostname (leave empty for github.com).
 fluxcd_github_hostname: ""
 
@@ -53,6 +61,10 @@ fluxcd_github_reconcile: false
 
 # Optional extra argv for flux bootstrap github (list of strings), e.g. ['--timeout', '10m'].
 fluxcd_github_bootstrap_extra_args: []
+
+# When true, hide flux bootstrap stdout/stderr in Ansible (harder to debug). Default false so failures show real errors.
+# GITHUB_TOKEN is only in the task environment; flux output rarely contains it — set true in shared CI logs if you prefer.
+fluxcd_github_bootstrap_no_log: false
 
 # Prefer env GITHUB_TOKEN on the controller; set this when not using the environment (use Vault).
 fluxcd_github_token: ""

@@ -1,5 +1,5 @@
 ---
-# Aligns with upstream Kubernetes apt install docs for the configured minor (default v1.35).
+# Prepare phase (main.yml). Apt + pkgs.k8s.io for kubernetes_version (see defaults).
 # https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
 
 - name: Ensure apt keyrings directory exists

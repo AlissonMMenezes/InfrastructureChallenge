@@ -1,0 +1,28 @@
+# CloudNative-PG Cluster: 3-instance PostgreSQL (HA + quorum).
+# Requires the cloudnative-pg operator (HelmRelease in gitops/operators/cloudnative-pg).
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: dev-postgres
+  namespace: postgres
+  labels:
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/component: database
+spec:
+  instances: 3
+  primaryUpdateStrategy: unsupervised
+
+  storage:
+    size: 10Gi
+
+  bootstrap:
+    initdb:
+      database: app
+      owner: app
+      # Credentials for `app` are created in secret `dev-postgres-app`
+
+  postgresql:
+    parameters:
+      max_connections: "200"
+      shared_buffers: "256MB"
+      log_min_duration_statement: "1000ms"

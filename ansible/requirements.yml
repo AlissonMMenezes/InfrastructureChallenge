@@ -1,4 +1,6 @@
 ---
 collections:
   - name: community.general
+  # >=2.4: kubernetes.core.k8s src supports remote URLs (Calico tigera-operator manifest).
   - name: kubernetes.core
+    version: ">=2.4.0"

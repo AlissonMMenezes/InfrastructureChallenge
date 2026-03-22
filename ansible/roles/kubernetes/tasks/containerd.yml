@@ -1,5 +1,5 @@
 ---
-# Containerd as the sole CRI for kubelet / kubeadm (dockershim removed in Kubernetes 1.24+).
+# Prepare phase (main.yml). Containerd as CRI for kubelet / kubeadm.
 - name: Install containerd and kubeadm port-forward dependency
   ansible.builtin.apt:
     name:

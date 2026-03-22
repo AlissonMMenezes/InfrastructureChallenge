@@ -37,13 +37,13 @@ All the code developed here was done with the support of [Cursor](https://cursor
   - [X] Ansible Code to deploy FluxCD on the cluster
 
 #### 22.03.2026 - GitOps Code and Workflow
-- [ ] GitOps Code and Workflow
-  - [ ] Create manifests for required operators
-    - [ ] CloudNativePG
-  - [ ] Configure CloudNativePG
-    - [ ] 3 PostgreSQL instances
-    - [ ] Persistent volumes
-    - [ ] Failover configuration
+- [-] GitOps Code and Workflow
+  - [X] Create manifests for required operators
+    - [X] CloudNativePG
+  - [X] Configure CloudNativePG
+    - [X] 3 PostgreSQL instances
+    - [X] Persistent volumes
+    - [X] Failover configuration
   - [ ] Configure Automated Backups
 
 #### 22.03.2026 - Monitoring Setup

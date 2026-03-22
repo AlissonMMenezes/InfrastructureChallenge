@@ -11,23 +11,28 @@
       - fluxcd_kubeconfig_stat.stat.exists | default(false)
     fail_msg: "{{ fluxcd_kubeconfig }} not found. Bootstrap the cluster (kubeadm) before installing Flux."
 
-- name: Build effective --components-extra list (image automation + user extras)
+- name: Normalize fluxcd_components_extra to a list (YAML list or comma-separated string)
+  ansible.builtin.set_fact:
+    fluxcd_components_extra_normalized: >-
+      {{
+        (fluxcd_components_extra | split(',') | map('trim') | list | reject('equalto', '') | list)
+        if (fluxcd_components_extra is string)
+        else (fluxcd_components_extra | default([]) | list)
+      }}
+
+- name: Build effective --components-extra list (image automation components + extra components)
   ansible.builtin.set_fact:
     fluxcd_components_extra_effective: >-
       {{
         (
-          (fluxcd_image_automation_controllers if fluxcd_image_automation | bool else [])
-          + (fluxcd_components_extra | default('') | split(',') | map('trim') | list | reject('equalto', '') | list)
-        ) | unique | sort | join(',')
+          (fluxcd_image_automation_components | default([]) | list if fluxcd_image_automation | bool else [])
+          + (fluxcd_components_extra_normalized | default([]) | list)
+        ) | map('trim') | reject('equalto', '') | list | unique | sort | join(',')
       }}
-  vars:
-    fluxcd_image_automation_controllers:
-      - image-reflector-controller
-      - image-automation-controller
 
 - name: Set flux install argv
   ansible.builtin.set_fact:
-    fluxcd_install_argv: "{{ [fluxcd_cli_path, 'install'] + (['--network-policy'] if fluxcd_network_policy | bool else []) + (['--components-extra=' ~ (fluxcd_components_extra_effective | trim)] if (fluxcd_components_extra_effective | default('') | trim | length) > 0 else []) }}"
+    fluxcd_install_argv: "{{ [fluxcd_cli_path, 'install', '--kubeconfig', fluxcd_kubeconfig] + (['--network-policy'] if fluxcd_network_policy | bool else []) + (['--components-extra=' ~ (fluxcd_components_extra_effective | trim)] if (fluxcd_components_extra_effective | default('') | trim | length) > 0 else []) }}"
 
 - name: Resolve GitHub token for flux bootstrap (variable or controller environment)
   ansible.builtin.set_fact:
@@ -49,11 +54,22 @@
     fail_msg: >-
       GitHub bootstrap needs fluxcd_github_owner, fluxcd_github_repository, fluxcd_github_path, and a token:
       export GITHUB_TOKEN=... on the Ansible controller, or set fluxcd_github_token (e.g. Vault / -e @secrets.yml).
+      For ImageUpdateAutomation commits, the token must allow pushing to the repo (not read-only).
   when: fluxcd_github_bootstrap | bool
+
+- name: Note Git write access for ImageUpdateAutomation
+  ansible.builtin.debug:
+    msg: >-
+      Image automation needs Git push: with token auth use a PAT that can commit (classic: repo scope; fine-grained: Contents Read and write).
+      With SSH deploy key (fluxcd_github_token_auth=false), fluxcd_github_read_write_key adds --read-write-key.
+    verbosity: 1
+  when:
+    - fluxcd_github_bootstrap | bool
+    - fluxcd_image_automation | bool
 
 - name: Set flux bootstrap github argv
   ansible.builtin.set_fact:
-    fluxcd_bootstrap_github_argv: "{{ [fluxcd_cli_path, 'bootstrap', 'github', '--owner', fluxcd_github_owner | trim, '--repository', fluxcd_github_repository | trim, '--branch', fluxcd_github_branch | trim, '--path', fluxcd_github_path | trim] + (['--personal'] if fluxcd_github_personal | bool else []) + (['--private=true'] if fluxcd_github_private | bool else ['--private=false']) + (['--hostname', fluxcd_github_hostname | trim] if (fluxcd_github_hostname | default('') | trim | length) > 0 else []) + (['--token-auth'] if fluxcd_github_token_auth | bool else []) + (['--reconcile'] if fluxcd_github_reconcile | bool else []) + (['--network-policy'] if fluxcd_network_policy | bool else ['--network-policy=false']) + (['--components-extra=' ~ (fluxcd_components_extra_effective | trim)] if (fluxcd_components_extra_effective | default('') | trim | length) > 0 else []) + (fluxcd_github_bootstrap_extra_args | default([])) }}"
+    fluxcd_bootstrap_github_argv: "{{ [fluxcd_cli_path, 'bootstrap', 'github', '--kubeconfig', fluxcd_kubeconfig, '--owner', fluxcd_github_owner | trim, '--repository', fluxcd_github_repository | trim, '--branch', fluxcd_github_branch | trim, '--path', fluxcd_github_path | trim] + (['--personal'] if fluxcd_github_personal | bool else []) + (['--private=true'] if fluxcd_github_private | bool else ['--private=false']) + (['--hostname', fluxcd_github_hostname | trim] if (fluxcd_github_hostname | default('') | trim | length) > 0 else []) + (['--read-write-key'] if (fluxcd_github_read_write_key | bool) and not (fluxcd_github_token_auth | bool) else []) + (['--token-auth'] if fluxcd_github_token_auth | bool else []) + (['--reconcile'] if fluxcd_github_reconcile | bool else []) + (['--network-policy'] if fluxcd_network_policy | bool else ['--network-policy=false']) + (['--components-extra=' ~ (fluxcd_components_extra_effective | trim)] if (fluxcd_components_extra_effective | default('') | trim | length) > 0 else []) + (fluxcd_github_bootstrap_extra_args | default([])) }}"
   when: fluxcd_github_bootstrap | bool
 
 - name: Bootstrap Flux with GitHub (flux bootstrap github)
@@ -72,7 +88,7 @@
       or 'bootstrap' in fluxcd_bootstrap_result.stdout | lower
       or 'committed' in fluxcd_bootstrap_result.stdout | lower
     )
-  no_log: true
+  no_log: "{{ fluxcd_github_bootstrap_no_log | bool }}"
 
 - name: Install Flux controllers into the cluster (flux install)
   ansible.builtin.command:
@@ -94,6 +110,8 @@
   ansible.builtin.command:
     argv:
       - "{{ fluxcd_cli_path }}"
+      - "--kubeconfig"
+      - "{{ fluxcd_kubeconfig }}"
       - check
   environment:
     KUBECONFIG: "{{ fluxcd_kubeconfig }}"

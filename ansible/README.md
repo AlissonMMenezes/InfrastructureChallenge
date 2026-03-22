@@ -16,11 +16,9 @@ This folder provisions a **kubeadm** cluster on Debian/Ubuntu nodes and can inst
 ## Requirements
 
 - **Ansible** 2.14+ on the machine you run playbooks from (controller).
-- **SSH** access to all nodes (often via a **bastion / jump host** and private IPs — see inventory example below).
+- **SSH** access to all nodes (often via a **bastion server** and private IPs — see inventory example below).
 - **Target OS**: Debian/Ubuntu (roles use `apt`, `systemd`).
 - **sudo/root** on nodes (`become: true` in playbooks).
-- **Outbound internet** on nodes for Kubernetes packages and images (or configure **apt proxy** — see [Apt / private workers](#apt--private-workers)).
-- **Collections**: `community.general`, `kubernetes.core` (installed from `requirements.yml`).
 
 ---
 
@@ -129,20 +127,23 @@ ansible-playbook -i inventory/dev-test-cluster.ini playbooks/bootstrap-k8s.yml
 
 ### What the playbook does (order)
 
-1. **Prepare all nodes** (`hosts: kubeadm_cluster`): **`base`**, **`kubernetes`** roles — containerd, Kubernetes apt repo/packages, kubelet, validation, etc.
-2. **Initialize control plane** (`hosts: kubeadm_control_plane`): kubeadm init, kubeconfig for root.
-3. **Join workers** (`hosts: kubeadm_workers`): kubeadm join using the token/command from the first control-plane.
-4. **Install CNI** (Calico) on control-plane: **`kubectl apply`** Tigera operator manifest + templated **`Installation`** / **`APIServer`** CRs (`pod_network_cidr` must match kubeadm); role installs **`python3-kubernetes`** for other `kubernetes.core` use.
-5. **Verify cluster**: wait for API **`/readyz`**, **`kubectl get nodes`**.
+The playbook only wires **hosts** + **`roles:`**; implementation is in **`roles/kubernetes/`** (see **`roles/kubernetes/README.md`** for phases and **`tasks_from`** files).
+
+1. **Prepare all nodes** — **`base`** + **`kubernetes`** (default **`tasks/main.yml`**).
+2. **Control plane** — **`kubernetes`** **`tasks_from: control_plane.yml`**.
+3. **Workers** — **`kubernetes`** **`tasks_from: workers.yml`**.
+4. **CNI** — **`kubernetes`** **`tasks_from: cni.yml`** (Calico via **`kubernetes.core`**, ≥ 2.4).
+5. **Verify** — **`kubernetes`** **`tasks_from: verify_cluster.yml`** (**`kubernetes.core.k8s_info`**).
 
 ### After bootstrap — quick checks
 
 On a control-plane node (or via Ansible ad-hoc):
 
-- **`kubectl get nodes`** — all **Ready**.
-- **`kubectl get pods -A`** — system pods running.
+- **`kubectl get nodes`** / **`kubectl get pods -A`** — optional manual checks (the role verifies via **`kubernetes.core`**).
 
-The **`kubernetes`** role copies **`/etc/kubernetes/admin.conf`** to **`~/.kube/config`** for the SSH user (e.g. root), so **`kubectl`** does not fall back to **`http://localhost:8080`**.
+The **`kubernetes`** role copies **`{{ kubernetes_admin_kubeconfig }}`** to **`~/.kube/config`** on the **control plane** and, when **`kubernetes_copy_admin_kubeconfig_to_workers`** is **`true`** (default), on **workers** after join — so **`kubectl`** uses the real API URL instead of **`http://localhost:8080`**. Disable on workers in production if you do not want cluster-admin credentials there.
+
+**`fluxcd`** role: **`flux install`**, **`flux bootstrap github`**, and **`flux check`** stay on the **`flux`** CLI (not replaceable by **`kubernetes.core.k8s`** without reimplementing Flux’s workflow).
 
 ### SSH host keys
 
@@ -179,9 +180,11 @@ export GITHUB_TOKEN=ghp_your_token_here
 cd ansible
 ansible-playbook -i inventory/dev-test-cluster.ini playbooks/install-fluxcd.yml \
   -e fluxcd_github_bootstrap=true \
-  -e fluxcd_github_owner=my-org-or-user \
-  -e fluxcd_github_repository=fleet-infra \
-  -e fluxcd_github_path=gitops/clusters/dev
+  -e fluxcd_github_owner=AlissonMMenezes \
+  -e fluxcd_github_repository=InfrastructureChallenge \
+  -e fluxcd_github_path=gitops/clusters/dev \
+  -e fluxcd_github_read_write_key=true \
+  -e fluxcd_github_personal=true
 ```
 
 For a **user** account (not an org), add **`-e fluxcd_github_personal=true`**.
@@ -194,7 +197,9 @@ ansible-playbook -i inventory/dev-test-cluster.ini playbooks/install-fluxcd.yml 
   -e @playbooks/vars/fluxcd-github.example.yml
 ```
 
-You can set **`fluxcd_github_token`** via **Ansible Vault** instead of **`GITHUB_TOKEN`** in the shell. The bootstrap task uses **`no_log: true`** to limit token exposure in logs.
+You can set **`fluxcd_github_token`** via **Ansible Vault** instead of **`GITHUB_TOKEN`** in the shell. Bootstrap output is shown by default (**`fluxcd_github_bootstrap_no_log: false`**) so failures include **flux** stderr; set **`fluxcd_github_bootstrap_no_log: true`** if you need to hide logs in shared CI.
+
+**If bootstrap fails:** read the printed **stderr** (token is not usually echoed). Typical fixes: **`fluxcd_github_personal: true`** for a user-owned repo; **`fluxcd_github_reconcile: true`** when the repo or cluster was already bootstrapped; **`fluxcd_github_bootstrap_extra_args: ['--force']`** if Flux was installed another way (e.g. Helm); confirm the PAT can **push** to the repo and create/update **`admin:public_key`** / repo access as required by [Flux’s GitHub bootstrap docs](https://fluxcd.io/flux/installation/bootstrap/github/).
 
 ### Flux behaviour summary
 
@@ -215,8 +220,9 @@ Defined in **`roles/fluxcd/defaults/main.yml`**; override via inventory, `group_
 |----------|---------|
 | **`fluxcd_version`** | Flux release **without** leading `v` (e.g. `2.4.0`). |
 | **`fluxcd_kubeconfig`** | Admin kubeconfig on the node (default **`/etc/kubernetes/admin.conf`**). |
-| **`fluxcd_image_automation`** | **`true`** (default): adds **`image-reflector-controller`** and **`image-automation-controller`**. |
-| **`fluxcd_components_extra`** | Extra comma-separated controllers merged into **`--components-extra=`** (deduped). |
+| **`fluxcd_image_automation`** | **`true`** (default): merges **`fluxcd_image_automation_components`** into **`--components-extra=`**. Set **`false`** to skip that bundle. |
+| **`fluxcd_image_automation_components`** | **List** of controller names when image automation is on (default: image-reflector + image-automation). Override or append names here. |
+| **`fluxcd_components_extra`** | **List** of extra controller names (preferred), or a **comma-separated string**; merged with the image-automation list, **deduped**, for **`--components-extra=`**. |
 | **`fluxcd_network_policy`** | **`true`**: **`--network-policy`**; **`false`**: **`--network-policy=false`**. |
 | **`fluxcd_cluster_install`** | **`false`**: CLI only (no **`flux install`**). Ignored if GitHub bootstrap is on. |
 | **`fluxcd_verify`** | **`false`**: skip **`flux check`**. |
@@ -226,11 +232,13 @@ Defined in **`roles/fluxcd/defaults/main.yml`**; override via inventory, `group_
 | **`fluxcd_github_branch`** | Branch (default **`main`**). |
 | **`fluxcd_github_personal`** | User repo (**`--personal`**). |
 | **`fluxcd_github_private`** | **`--private=true`** / **`false`**. |
-| **`fluxcd_github_token_auth`** | **`true`** (default): **`--token-auth`**. |
+| **`fluxcd_github_token_auth`** | **`true`** (default): **`--token-auth`**. **`GITHUB_TOKEN`** must allow **pushing** to the repo for **ImageUpdateAutomation** (classic: **`repo`**; fine-grained: **Contents: Read and write**). |
+| **`fluxcd_github_read_write_key`** | **`true`** (default): with **`fluxcd_github_token_auth: false`**, passes **`--read-write-key`** so the GitHub deploy key can push. With token auth, use a write-capable PAT instead. |
 | **`fluxcd_github_hostname`** | GitHub Enterprise hostname (optional). |
 | **`fluxcd_github_reconcile`** | **`true`**: **`--reconcile`**. |
 | **`fluxcd_github_bootstrap_extra_args`** | Extra args as a **list** of strings. |
 | **`fluxcd_github_token`** | Optional; else **`GITHUB_TOKEN`** from controller env. |
+| **`fluxcd_github_bootstrap_no_log`** | **`true`**: hide bootstrap stdout/stderr (**`no_log`**). Default **`false`** so errors are visible. |
 
 ---
 
@@ -240,9 +248,9 @@ Defined in **`roles/fluxcd/defaults/main.yml`**; override via inventory, `group_
 
 Set **`kubernetes_version`** on **`kubeadm_cluster`** so apt uses **`pkgs.k8s.io/.../v<minor>/deb/`**. Must be a **published** minor (e.g. `1.31`).
 
-### Kubeadm preflight: unique `product_uuid` and MACs
+### Kubeadm preflight: unique SMBIOS `product_uuid`
 
-The **`kubernetes`** role runs **`validate_cluster_node_identity.yml`** when **`kubernetes_validate_unique_node_identity`** is `true`: collects non-loopback MACs and **`product_uuid`**, asserts **no duplicates** across **`kubeadm_cluster`**. Disable only if you must (**not** recommended): **`kubernetes_validate_unique_node_identity: false`**.
+When **`kubernetes_validate_unique_node_identity`** is `true`, **`validate_cluster_node_identity.yml`** reads **`/sys/class/dmi/id/product_uuid`** on each node and asserts it is **non-empty**, **not an all-zero/all-f mask UUID**, and **unique across `kubeadm_cluster`**. No MAC address checks. Disable only if you must (**not** recommended): **`kubernetes_validate_unique_node_identity: false`**.
 
 ### Control-plane port precheck
 
@@ -254,9 +262,11 @@ Installs **containerd**, then Kubernetes packages via deb822 **`kubernetes.sourc
 
 ### Calico CNI (Tigera operator)
 
-**`roles/kubernetes/tasks/cni.yml`** applies the upstream **Tigera operator** manifest, then **`calico-custom-resources.yaml.j2`** ( **`Installation`** + **`APIServer`** ). The **`Installation`** `ipPools[].cidr` is **`{{ pod_network_cidr }}`** and must match **`kubeadm init --pod-network-cidr`**.
+**`roles/kubernetes/tasks/cni.yml`** uses **`kubernetes.core.k8s`** with **`apply: true`** and **`server_side_apply`** (when **`kubernetes_calico_operator_server_side_apply`**) for the upstream **Tigera operator** manifest (**`src`** URL — needs **`kubernetes.core` ≥ 2.4**), because the **`installations.operator.tigera.io`** CRD is too large for client-only apply annotations (**256KiB** limit). **`kubernetes.core.k8s`** then applies **`calico-custom-resources.yaml.j2`** from **`/tmp`**. **`kubernetes.core.k8s_info`** waits for **`tigera-operator`** **Deployment** **Available**, **`calico-system`** **Namespace**, and each **Pod** **Ready**. **`kubernetes_admin_kubeconfig`** defaults to **`/etc/kubernetes/admin.conf`**.
 
-Variables in **`roles/kubernetes/defaults/main.yml`**: **`kubernetes_calico_version`**, **`kubernetes_calico_tigera_operator_manifest_url`**, and **`kubernetes_calico_wait_*`** timeouts/retries.
+Variables in **`roles/kubernetes/defaults/main.yml`**: **`kubernetes_calico_version`**, **`kubernetes_calico_tigera_operator_manifest_url`**, **`kubernetes_calico_operator_server_side_apply`**, **`kubernetes_calico_operator_field_manager`**, **`kubernetes_admin_kubeconfig`**, and **`kubernetes_calico_wait_*`** timeouts/retries.
+
+If a **previous** client-side apply failed partway through, delete a stuck **`installations.operator.tigera.io`** CRD if needed (`kubectl delete crd installations.operator.tigera.io`) and re-run the playbook so server-side apply can recreate it.
 
 **UFW:** **`security`** allows **UDP 4789** (VXLAN) and **TCP 179** (BGP) on cluster nodes. Replacing **Flannel** (UDP 8472) with Calico.
 

@@ -1,13 +1,16 @@
-# Flux: demo application (prod)
+---
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: demo-app-prod
+  name: operators
   namespace: flux-system
 spec:
-  interval: 10m
-  path: ./gitops/applications/demo-app/manifests/prod
+  interval: 5m0s
+  path: ./gitops/operators/
   prune: true
+  retryInterval: 2m0s
   sourceRef:
     kind: GitRepository
     name: flux-system
+  timeout: 3m0s
+  wait: true

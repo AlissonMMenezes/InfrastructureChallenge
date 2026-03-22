@@ -1,9 +1,8 @@
-# Flux: Helm chart index for CloudNativePG operator
 apiVersion: source.toolkit.fluxcd.io/v1
 kind: HelmRepository
 metadata:
-  name: cnpg
-  namespace: flux-system
+  name: cloudnative-pg
+  namespace: default
 spec:
-  interval: 24h
   url: https://cloudnative-pg.github.io/charts
+  interval: 24h

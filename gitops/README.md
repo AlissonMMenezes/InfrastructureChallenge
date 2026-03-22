@@ -7,7 +7,9 @@ This tree is intended for **Flux v2** (`flux bootstrap github` / `flux install` 
 | Path | Purpose |
 |------|---------|
 | **`clusters/<env>/`** | Cluster bootstrap path: kustomize bundle of Flux `HelmRepository`, `HelmRelease`, and `Kustomization` objects. Point **`flux bootstrap github --path`** here (e.g. `./gitops/clusters/dev`). |
-| **`operators/postgres/`** | CNPG Helm install + Flux `Kustomization` CRs that sync `manifests/<env>/`. |
+| **`infrastructure/`** | Shared cluster infrastructure (e.g. CloudNative-PG **`Cluster`** CRs). Synced by a Flux **`Kustomization`** such as **`clusters/dev/infrastructure.yaml`** (after the **`operators`** reconcile). |
+| **`operators/cloudnative-pg/`** | CNPG Helm **`HelmRepository`** + **`HelmRelease`** (operator install). |
+| **`operators/postgres/`** (legacy / prod samples) | Older layout in some branches; **dev** uses **`operators/cloudnative-pg`**. |
 | **`applications/demo-app/`** | Flux `Kustomization` CRs that sync `manifests/<env>/`. |
 | **`applications/*/manifests/`** | Plain Kubernetes manifests + **kustomize** `Kustomization` (kustomize.config.k8s.io). |
 | **`operators/*/manifests/`** | Same for operators (CNPG `Cluster`, backups, monitors). |
