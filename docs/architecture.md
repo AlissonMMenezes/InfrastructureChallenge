@@ -5,44 +5,85 @@
 ### Hetzner (Terraform `kubernetes` module)
 
 - One **VPC** split into **two subnets**:
-  - **Jump / bastion subnet** — host with **public IPv4**, **SSH** entry point, **SNAT/NAT** for the cluster subnet
-  - **Cluster subnet** — **private-only** control-plane and workers; **default route via jump**; **SSH to nodes only from jump subnet** (plus optional extra CIDRs)
-- **Load balancer** targets workers for inbound kube-apiserver (or apps); it does **not** provide outbound Internet access.
+  - **Bastion subnet** — host with **public IPv4**, **SSH** entry point, **SNAT/NAT** for the cluster subnet.
+  - **Cluster subnet** — **private-only** control-plane and workers; **default route** via the Hetzner network gateway; **Internet** traffic steered to the NAT host by cloud routes; **SSH to nodes** from the jump subnet (plus optional extra CIDRs).
+- **Load balancers** — **inbound only** (not egress). By default a **workers** load balancer forwards **80→30080** and **443→30443** (typical ingress **NodePorts**). Exposing **kube-apiserver** on a public LB is **optional** (separate LB to control-plane **6443**).
+
+Hetzner does not provide a managed NAT gateway; **MASQUERADE** on the bastion/NAT host provides egress for private nodes. Applications are typically reached via the **Hetzner load balancer** → workers.
+
+### Topology diagram
+
+```mermaid
+flowchart TB
+
+  subgraph VPC["Hetzner private network — e.g. 10.50.0.0/16"]
+    subgraph JumpSN["BastionServer and NatGateway subnet — e.g. 10.50.1.0/24"]
+      Jump["**Bastion**<br/>Public IPv4<br/>NAT gateway SNAT"]
+    end
+
+    subgraph ClusterSN["Kubernetes cluster subnet — e.g. 10.50.2.0/24"]
+      CP["**Control-plane**<br/>Private IPv4 only"]
+      WK["**Workers**<br/>Private IPv4 only"]
+    end
+
+    LB["**Hetzner Load Balancer**<br/>Inbound L4 to targets"]
+  end
+
+  Admin -->|"SSH (22)"| Jump
+  Jump -->|"Internal SSH"| CP
+  Jump -->|"Internal SSH"| WK
+
+  CP -->|"Default route → VPC gateway"| Jump
+  WK -->|"Default route → VPC gateway"| Jump
+  Jump -->|"MASQUERADE / egress"| Internet
+
+  Users -->|"HTTPS (e.g. 443)"| LB
+  LB -->|"Forwards to node ports"| WK
+
+  CP -.->|"Kubernetes API<br/>(cluster internal)"| WK
+```
+
+### Traffic paths
+
+| Path | Description |
+|------|-------------|
+| **Admin → cluster** | SSH from the Internet to the **jump** host; Ansible uses **ProxyJump** (or equivalent) to reach private **master/worker** IPs. |
+| **Cluster → Internet** | Nodes use the VPC default gateway; **SDN route** `0.0.0.0/0` → jump private IP; jump performs **SNAT** for the cluster subnet (`apt`, image pulls, etc.). |
+| **LB** | Inbound only. **Workers LB** default: **80→30080**, **443→30443**. Optional **API LB**: **6443** to control-plane. |
+| **Firewalls** | Separate rules for **bastion** vs **Kubernetes** nodes (e.g. SSH to nodes restricted to jump subnet). |
 
 ### Original challenge layout (generic)
 
-- 3 Linux nodes per environment:
-  - 1 control-plane
-  - 2 workers
-- Terraform provides node definitions, network CIDR metadata, firewall abstraction, environment-specific variables (`dev`, `prod`).
+- Three Linux nodes per environment: **1** control-plane, **2** workers.
+- Terraform defines nodes, network metadata, firewalls, and environment variables (`dev`, `prod`).
 
 ## Cluster architecture
 
-- Kubernetes distribution: **kubeadm** (Ansible bootstrap); challenge docs may reference k3s as an alternate profile.
-- CNI: **Calico** (Tigera operator, Ansible); can be switched to another CNI with manifest/role changes.
-- Ingress: not pinned in GitOps tree; add via Flux when needed.
-- Stateful data: CloudNativePG managed PostgreSQL cluster (`3` instances).
-- Storage: persistent volumes via default StorageClass (replaceable with CSI).
+- **Kubernetes**: **kubeadm** (Ansible `bootstrap-k8s.yml`).
+- **CNI**: **Calico** (Tigera operator, applied by Ansible).
+- **Ingress**: **Traefik** via GitOps (**`gitops/infrastructure/traefik/`**, Flux `HelmRelease`).
+- **Stateful data**: **CloudNativePG** operator (GitOps operators) + **`Cluster`** CR (GitOps infrastructure / postgres).
+- **Storage**: default **StorageClass** on the cloud (replaceable with CSI).
 
 ## GitOps workflow
 
-1. Engineer commits to Git.
-2. **Flux CD** watches the bootstrap path (e.g. `gitops/clusters/<env>/` via `flux bootstrap github --path=./gitops/clusters/dev`).
-3. The cluster kustomization applies Flux **`HelmRepository` / `HelmRelease`** (e.g. CloudNativePG operator) and Flux **`Kustomization`** objects that sync:
-   - operator stack (Helm),
-   - database cluster manifests,
-   - demo application manifests.
-4. Drift is reconciled on the configured intervals (`spec.interval`).
+1. Changes are merged to Git (`main` or your trunk).
+2. **Flux** syncs **`gitops/clusters/<env>/`** (`flux bootstrap github --path=./gitops/clusters/dev`, etc.).
+3. Child **Flux `Kustomization`** resources apply **operators** (Helm), **applications** (kustomize), and **infrastructure** (Traefik, Postgres cluster, …).
+4. **Helm-controller** reconciles **`HelmRelease`** objects (operators and Traefik).
+5. State is re-checked on each `spec.interval`.
+
+See **[GitOps (Flux)](gitops.md)** for operators vs infrastructure vs applications.
 
 ## Environment separation
 
-- Terraform: `terraform/environments/dev` and `terraform/environments/prod`.
-- GitOps root apps and value overlays separated per cluster.
-- Ansible inventory separated by environment.
+- **Terraform**: `terraform/environments/dev` and `terraform/environments/prod`.
+- **GitOps**: one **`gitops/clusters/<env>/`** tree per cluster — do not mix `dev` and `prod` on the same cluster.
+- **Ansible**: per-environment inventory files.
 
 ## Reproducibility
 
-- Declarative configs only.
+- Declarative Terraform and GitOps manifests.
 - Idempotent Ansible roles.
-- Version-pinned images/manifests in Git.
-- Promotion model: `dev -> prod` via pull request and review gates.
+- Version-pinned Helm charts and images where practical.
+- Promotion **dev → prod** via pull request and review.

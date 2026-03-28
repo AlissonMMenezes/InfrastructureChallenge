@@ -1,25 +1,40 @@
 # Infrastructure - Challenge
 
-This repository aims to deploy the infrastructure for a Kubernetes cluster using Terraform, Ansible and GitOps.
+This repository deploys a Kubernetes cluster on **Hetzner** using **Terraform**, **Ansible (kubeadm)**, and **GitOps (Flux CD v2)**.
 
-All the code developed here was done with the support of [Cursor](https://cursor.com/)
+All the code developed here was done with the support of [Cursor](https://cursor.com/).
+
+## Documentation
+
+Technical runbooks and how-tos live under **`docs/`**:
+
+- **[Documentation index](docs/README.md)** — table of contents  
+- **[Getting started](docs/getting-started.md)** — Terraform → Ansible → Flux order  
+- **[Terraform](docs/terraform.md)** — provision VMs and networking  
+- **[Ansible](docs/ansible.md)** — bootstrap Kubernetes and optional Flux  
+- **[GitOps (Flux)](docs/gitops.md)** — sync model, **operators vs infrastructure vs applications**  
+- **[Architecture](docs/architecture.md)** — network topology and cluster design  
+- **[Repository structure](docs/repository-structure.md)** — what each top-level folder is for  
+
+Also: [`ansible/README.md`](ansible/README.md), [`gitops/README.md`](gitops/README.md), [`terraform/environments/dev/README.md`](terraform/environments/dev/README.md).
 
 ## Scope and assumptions
 
-- Target environment: Virtual Machines on Hetzner.
-- Kubernetes distribution: **kudeadm v1.35**.
-- GitOps tool: **Flux CD v2** (GitRepository + HelmRelease + Kustomization).
-- Stateful operator: CloudNativePG.
-- Backup target: S3-compatible object storage (MinIO or AWS S3).
+- Target environment: virtual machines on **Hetzner**.
+- Kubernetes: **kubeadm** (minor aligned with [pkgs.k8s.io](https://pkgs.k8s.io/), e.g. `1.31`+).
+- GitOps: **Flux v2** (`GitRepository`, `HelmRelease`, `Kustomization`).
+- Stateful data: **CloudNativePG**; backups target **S3-compatible** storage (see [`docs/operations.md`](docs/operations.md)).
 
+## Security-by-default (summary)
 
-
-## Security-by-default decisions
-
-- Least-privilege RBAC for app/service accounts.
-- Namespace isolation and default deny network policies.
-- Secret references externalized (SOPS/ExternalSecrets-ready).
+- Least-privilege RBAC for workloads and service accounts.
+- Namespace isolation and default-deny-oriented network policies where defined in GitOps.
+- Secrets referenced via Kubernetes secrets / external-secret patterns (SOPS/ESO-ready).
 - Hardened node baseline via Ansible (SSH, firewall, fail2ban).
+
+Details: [`docs/security.md`](docs/security.md).
+
+---
 
 ## Planning
 
@@ -45,6 +60,7 @@ All the code developed here was done with the support of [Cursor](https://cursor
     - [X] Persistent volumes
     - [X] Failover configuration
   - [ ] Configure Automated Backups
+  - [X] Traefik installing as Ingress
 
 #### 22.03.2026 - Monitoring Setup
 - [X] Monitoring Setup
@@ -59,12 +75,11 @@ All the code developed here was done with the support of [Cursor](https://cursor
 
 #### 28.03.2026 - Deploy Applications
 - [ ] Deploy Applications
-  - [ ] Deploy applications on the infrastructure
+  - [ ] Deploy demo-app on the infrastructure
 
 #### 28.03.2026 - Update Documentation
-- [ ] Update Documentation
-  - [ ] Update documentation according to all changes
-
+- [X] Update Documentation
+  - [X] Split technical docs into `docs/`; Terraform, Ansible, GitOps guides added
 
 ## Team Structure
 | Role | Responsibilities | 
@@ -79,7 +94,7 @@ All the code developed here was done with the support of [Cursor](https://cursor
 
 ## Review Process
 
-For the developemnt process we have to follow the [GitFlow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow)
+For the development process we have to follow the [GitFlow](https://www.atlassian.com/git/tutorials/comparing-workflows/gitflow-workflow)
 
 **Main branch needs always to be protected**
 
@@ -147,6 +162,8 @@ gitops/
 
 Then all the management can be centralized, or case the customer needs to have access to the configuration, FluxCD allows to have the configuration in a separated repository: [Ways of structuring your repositories](https://fluxcd.io/flux/guides/repository-structure/)
 
+See **[GitOps (Flux)](docs/gitops.md)** and **[Architecture](docs/architecture.md)** for how this repo maps **operators**, **infrastructure**, and **applications**.
+
 
 #### Secrets Separation
 
@@ -157,136 +174,3 @@ Each customer could have their own namespaces.
 Docs about [OpenBao Namespaces](https://openbao.org/docs/concepts/namespaces/)
 
 The secrets can be dynamically synced into the applications using the [External Secrets Operator](https://external-secrets.io/latest/)
-
-
-## Repository structure
-
-- `terraform/`: modular provisioning (`network`, `compute`, `nat-gateway`, `loadbalancer`, `kubernetes`, …) and `dev` / `prod` environments.
-- `ansible/`: idempotent roles to configure hosts and bootstrap Kubernetes with kubeadm and install FluxCD Operator.
-- `gitops/`: Flux manifests and workload kustomize trees separated by cluster and concern (see `gitops/README.md`).
-- `demo-app/`: containerized REST API that reads/writes PostgreSQL data.
-- `docs/`: architecture, operations and security.
-
-## Hetzner infrastructure architecture
-
-Terraform `kubernetes` module (see `terraform/environments/dev/`): one VPC, **two subnets**, **BastionServer** with public IPv4 and **SNAT** for the cluster subnet, **private-only** control-plane and workers, a **workers load balancer** by default for inbound app traffic, and an **optional** second LB for the **Kubernetes API** (control-plane).
-
-To protect all the nodes, none of it have a public IP Address, then to access it, it is necessary to use the BastionServer. I used to have the same configuration in the past, but i provided the cluster using [KOPS](https://kops.sigs.k8s.io)
-
-Hetzner does not have a NatGateway Service, like we have on AWS, then i had to provide one and make the configuration via Cloud-Init, so the nodes can access the internet and download the packages.
-
-In order to secure the Kubernetes Cluster, all the nodes are private and the applications are exposed via Hetzner LoadBalancer.
-
-```mermaid
-flowchart TB
-  
-
-  subgraph VPC["Hetzner private network — e.g. 10.50.0.0/16"]
-    subgraph JumpSN["BastionServer and NatGateway subnet — e.g. 10.50.1.0/24"]
-      Jump["**Bastion**<br/>Public IPv4<br/>NAT gateway SNAT"]
-    end
-
-    subgraph ClusterSN["Kubernetes Cluster subnet — e.g. 10.50.2.0/24"]
-      CP["**Control-plane**<br/>Private IPv4 only"]
-      WK["**Workers**<br/>Private IPv4 only"]
-    end
-
-    LB["**Hetzner Load Balancer**<br/>Inbound L4 to targets"]
-  end
-
-  Admin -->|"SSH (22)"| Jump
-  Jump -->|"BastionServer / internal SSH"| CP
-  Jump -->|"BastionServer / internal SSH"| WK
-
-  CP -->|"Default route → NatGateway"| Jump
-  WK -->|"Default route → NatGateway"| Jump
-  Jump -->|"MASQUERADE / egress"| Internet
-
-  Users -->|"HTTPS (e.g. 443)"| LB
-  LB -->|"Forwards to node ports"| WK
-
-  CP -.->|"Kubernetes API<br/>(cluster internal)"| WK
-```
-
-| Path | Description |
-|------|-------------|
-| **Admin → cluster** | SSH only to **jump** from the Internet; Ansible uses **BastionServer** to reach master/worker private IPs. |
-| **Cluster → Internet** | `apt`, image pulls, etc.: **default route via BastionServer**; BastionServer applies **SNAT** for the cluster subnet. |
-| **LB** | **Inbound** only (no outbound NAT). **Workers LB** is on by default (`lb_services`: **80→30080**, **443→30443**). **API LB** is optional (`expose_kubernetes_api_via_load_balancer` → master **6443**). |
-| **Firewalls** | Separate rules for **BastionServer** vs **Kubernetes** nodes (SSH to nodes restricted to jump subnet + optional extra CIDRs). |
-
-## Quick start
-
-### 1) Provision infrastructure (Terraform)
-
-```bash
-cd terraform/environments/dev
-terraform init
-terraform plan -out tf.plan
-terraform apply tf.plan
-```
-
-### 2) Configure nodes and bootstrap Kubernetes (Ansible kubeadm)
-
-Hetzner layout uses a **bastion / jump** host (public IP), **private control-plane and workers**, and **ProxyJump** for Ansible. See `terraform/environments/dev/README.md`.
-
-```bash
-cd ansible
-ansible-galaxy collection install -r requirements.yml
-# Edit inventory: set jump public IP and [bastion] group — see inventory/dev-test-cluster.ini
-ansible-playbook -i inventory/dev-test-cluster.ini playbooks/bootstrap-k8s.yml
-```
-
-## Ansible usage (role, playbook, inventory)
-
-- **Inventory**: `ansible/inventory/dev-test-cluster.ini` (example)
-  - `[bastion]`: jump host (Terraform output public IPv4)
-  - `[kubeadm_control_plane]` / `[kubeadm_workers]`: private IPs on **cluster subnet** (`10.50.2.x`), `ProxyJump` via jump
-- **Roles**: `base`, `security`, `kubernetes` (kubeadm install/init/join/CNI)
-- **Playbook**: `ansible/playbooks/bootstrap-k8s.yml`
-  1. Harden **bastion** (`base`, `security` — keeps NAT after UFW)
-  2. Prepare cluster nodes (`base`, `security`, `kubernetes` install)
-  3. `kubeadm init` / join / Calico (Tigera operator)
-
-### Runbook
-
-1. SSH to the **jump** host (public IP from Terraform).
-2. Fill in `inventory/dev-test-cluster.ini` (`REPLACE_JUMP_PUBLIC_IP`, `[bastion]`).
-3. Run the playbook as above.
-
-### Optional validation after deployment
-
-Run from the control plane:
-
-```bash
-kubectl get nodes -o wide
-kubectl get pods -A
-```
-
-### 3) Install Flux CD and sync GitOps
-
-Install Flux on the cluster (see `ansible/README.md`), then bootstrap against this repository so the sync path matches **`gitops/clusters/<env>`**, for example:
-
-```bash
-export GITHUB_TOKEN=ghp_...   # PAT with permissions required by Flux + your repo
-flux bootstrap github \
-  --owner=<org-or-user> \
-  --repository=<this-repo> \
-  --branch=main \
-  --path=./gitops/clusters/dev \
-  --personal   # omit for GitHub org-owned repo
-```
-
-Or use Ansible: `ansible/playbooks/install-fluxcd.yml` with **`fluxcd_github_bootstrap=true`** and **`fluxcd_github_path=gitops/clusters/dev`**.
-
-Flux then reconciles (via `HelmRelease` + Flux `Kustomization` CRs committed under that path):
-
-- CloudNativePG operator (Helm) and Postgres cluster manifests
-- Demo application
-- Monitoring/backup resources in the kustomize trees
-
-## Lifecycle management
-
-- **Monitoring**: `PodMonitor`/`ServiceMonitor` compatible labels for Prometheus stack.
-- **Backup**: scheduled `CloudNativePG` backups to object storage.
-- **Restore**: documented restore flow in `docs/operations.md`.

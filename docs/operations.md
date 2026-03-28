@@ -1,5 +1,7 @@
 # Operations lifecycle
 
+For provisioning and GitOps bootstrap order, see **[Getting started](getting-started.md)**.
+
 ## Backup strategy
 
 - CloudNativePG `ScheduledBackup` runs periodic backups.
