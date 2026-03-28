@@ -30,7 +30,7 @@ The dev entrypoint (`kustomization.yaml`) pulls in, in order:
 | **Operators** | `operators` | `gitops/operators/` | Third-party **operators** installed with **Helm** (Flux `HelmRepository` + `HelmRelease`) |
 | **Applications** | `applications` | `gitops/applications/environments/dev/` | App workloads (Kustomize / plain manifests), e.g. demo app |
 | **Infrastructure** | `infrastructure` | `gitops/infrastructure/` | **Cluster platform** after operators: **Let’s Encrypt** (`ClusterIssuer/letsencrypt-prod`), **OpenBao** public **Ingress**, **Traefik**, shared **Postgres** `Cluster` (e.g. `dev-postgres`), etc. |
-| **Image automation** | (included in cluster kustomize) | `gitops/clusters/dev/image-automation/` | Flux **ImageRepository** / **ImagePolicy** / **ImageUpdateAutomation** (optional CI → image bumps in Git) |
+| **Image automation** | (with app overlay) | `gitops/applications/environments/dev/demo-app/image-automation.yaml` | Flux **ImageRepository** / **ImagePolicy** / **ImageUpdateAutomation** (optional CI → image bumps in Git; **`update.path`** targets the same folder as **`kustomization.yaml`**) |
 
 **Flux `dependsOn` (dev):** **`infrastructure`** waits for **`operators`** (CRDs and Helm installs, including cert-manager and OpenBao, exist before the `ClusterIssuer` and ingress manifests). **`applications`** waits for **`operators`** and **`infrastructure`** so **Let’s Encrypt** issuers and shared ingress plumbing exist before app ingresses and certificates. The root `gitops/clusters/dev/kustomization.yaml` only lists child Flux `Kustomization` files; ordering is defined on those CRs, not by file list order.
 
@@ -95,4 +95,4 @@ Point **DNS A/AAAA** records for those hostnames at the **workers load balancer*
 
 The workflow **`.github/workflows/demo-app-image.yml`** pushes to **GHCR** using the GitHub owner name **lowercased** in the image path (`ghcr.io/<owner-lower>/demo-app`), because OCI repository names must be lowercase. Align **`ImageRepository`** / **`deployment`** image references with that path.
 
-If **`gitops/clusters/dev/image-automation/`** is enabled, Flux can watch container registries (e.g. GHCR) and commit image tag updates back to Git. Ensure the Git credentials Flux uses allow **push** if you use **ImageUpdateAutomation** (see **`ansible/README.md`** Flux variables).
+If **`image-automation.yaml`** is included in the dev **demo-app** overlay, Flux can watch container registries (e.g. GHCR) and commit image tag updates back to Git. Ensure the Git credentials Flux uses allow **push** if you use **ImageUpdateAutomation** (see **`ansible/README.md`** Flux variables).

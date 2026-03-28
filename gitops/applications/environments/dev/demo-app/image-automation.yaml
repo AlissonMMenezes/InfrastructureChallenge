@@ -22,7 +22,7 @@ spec:
     name: demo-app
   policy:
     semver:
-      range: ">=0.1.0"
+      range: ">=0.0.0"
 
 ---
 apiVersion: image.toolkit.fluxcd.io/v1beta2
@@ -47,5 +47,5 @@ spec:
     push:
       branch: main
   update:
-    path: ./gitops/applications/base/demo-app
+    path: ./gitops/applications/environments/dev/demo-app
     strategy: Setters

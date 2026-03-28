@@ -16,7 +16,7 @@ spec:
       serviceAccountName: demo-api
       containers:
         - name: demo-api
-          image: ghcr.io/alissonmachado/demo-app:0.1.0 # {"$imagepolicy": "flux-system:demo-app"}
+          image: ghcr.io/alissonmachado/demo-app:0.1.0
           envFrom:
             - secretRef:
                 name: demo-app-postgres

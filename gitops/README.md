@@ -7,7 +7,7 @@ This tree is intended for **Flux v2** (`flux bootstrap github` / `flux install` 
 | Path | Purpose |
 |------|---------|
 | **`clusters/<env>/`** | Cluster bootstrap path: kustomize bundle of Flux `HelmRepository`, `HelmRelease`, and `Kustomization` objects. Point **`flux bootstrap github --path`** here (e.g. `./gitops/clusters/dev`). |
-| **`clusters/<env>/image-automation/`** | Flux image automation objects (`ImageRepository`, `ImagePolicy`, `ImageUpdateAutomation`) for automatic image tag updates in Git. |
+| **`applications/environments/<env>/demo-app/`** (example) | Dev **demo-app** overlay can include **`image-automation.yaml`** next to **`kustomization.yaml`** so registry policies and the **`ImageUpdateAutomation`** path stay with the app. |
 | **`infrastructure/`** | Shared platform: **Let’s Encrypt** `ClusterIssuer`, **OpenBao** `Ingress`, **Traefik** `HelmRelease`, CloudNativePG **`Cluster`** (e.g. **`postgres/`**), namespaces. Synced by **`clusters/dev/infrastructure.yaml`** with **`dependsOn: operators`**. |
 | **`operators/cert-manager/`** | Jetstack **`HelmRepository`** + **`cert-manager`** **`HelmRelease`** (ACME / Let’s Encrypt TLS). |
 | **`operators/kube-prometheus-stack/`** | **`prometheus-community`** **`HelmRepository`** + **`kube-prometheus-stack`** (Prometheus, **Grafana** + **Flux** dashboards folder, **PodMonitor** for Flux controllers, KSM **CRS** for **`gotk_resource_info`**, ingress/TLS for Grafana). See **`operators/kube-prometheus-stack/README.md`**. |

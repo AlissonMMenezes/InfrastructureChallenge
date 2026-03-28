@@ -6,4 +6,3 @@ resources:
   - operators.yaml
   - applications.yaml
   - infrastructure.yaml
-  - image-automation/
