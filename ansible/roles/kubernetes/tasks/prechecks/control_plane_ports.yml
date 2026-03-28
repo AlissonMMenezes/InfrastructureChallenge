@@ -1,8 +1,8 @@
 ---
-# Prepare phase (main.yml), control-plane hosts only. TCP 6443 must be free before first kubeadm init.
+# Before first kubeadm init, 6443 must be free. After bootstrap, kube-apiserver listens there — skip on re-runs.
 - name: Detect existing kubeadm control-plane (admin kubeconfig)
   ansible.builtin.stat:
-    path: "{{ kubernetes_admin_kubeconfig }}"
+    path: /etc/kubernetes/admin.conf
   register: kubernetes_precheck_admin_conf
 
 - name: Ensure Kubernetes API port is not already in use

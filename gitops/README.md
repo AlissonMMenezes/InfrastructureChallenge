@@ -7,7 +7,10 @@ This tree is intended for **Flux v2** (`flux bootstrap github` / `flux install` 
 | Path | Purpose |
 |------|---------|
 | **`clusters/<env>/`** | Cluster bootstrap path: kustomize bundle of Flux `HelmRepository`, `HelmRelease`, and `Kustomization` objects. Point **`flux bootstrap github --path`** here (e.g. `./gitops/clusters/dev`). |
-| **`infrastructure/`** | Shared cluster infrastructure (e.g. CloudNative-PG **`Cluster`** CRs). Synced by a Flux **`Kustomization`** such as **`clusters/dev/infrastructure.yaml`** (after the **`operators`** reconcile). |
+| **`clusters/<env>/image-automation/`** | Flux image automation objects (`ImageRepository`, `ImagePolicy`, `ImageUpdateAutomation`) for automatic image tag updates in Git. |
+| **`infrastructure/`** | Shared cluster infrastructure: e.g. **Traefik** (`HelmRepository` + `HelmRelease`), CloudNative-PG **`Cluster`**, etc. Synced by **`clusters/dev/infrastructure.yaml`** (after **`operators`**). |
+| **`operators/cert-manager/`** | Jetstack **`HelmRepository`** + **`cert-manager`** **`HelmRelease`** (ACME / Let’s Encrypt TLS). |
+| **`operators/kube-prometheus-stack/`** | **`prometheus-community`** **`HelmRepository`** + **`kube-prometheus-stack`** (Prometheus Operator, **ServiceMonitors**, node-exporter, kube-state-metrics, Grafana). |
 | **`operators/cloudnative-pg/`** | CNPG Helm **`HelmRepository`** + **`HelmRelease`** (operator install). |
 | **`operators/postgres/`** (legacy / prod samples) | Older layout in some branches; **dev** uses **`operators/cloudnative-pg`**. |
 | **`applications/demo-app/`** | Flux `Kustomization` CRs that sync `manifests/<env>/`. |

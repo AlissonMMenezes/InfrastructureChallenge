@@ -68,6 +68,27 @@ locals {
   worker_target_ids = [
     for worker in local.worker_servers : module.compute.server_ids[worker.name]
   ]
+
+  master_server_name = "${var.cluster_name}-master-1"
+  master_target_id   = module.compute.server_ids[local.master_server_name]
+
+  workers_lb_enabled = length(var.lb_services) > 0
+
+  effective_kubernetes_api_lb_type = coalesce(var.kubernetes_api_lb_type, var.lb_type)
+
+  kube_api_lb_services = [
+    {
+      protocol              = "tcp"
+      listen_port           = var.kubernetes_api_lb_listen_port
+      destination_port      = 6443
+      proxyprotocol         = false
+      health_check_protocol = "tcp"
+      health_check_port     = 6443
+      health_check_interval = 10
+      health_check_timeout  = 5
+      health_check_retries  = 3
+    }
+  ]
 }
 
 resource "terraform_data" "jump_architecture_precheck" {
@@ -80,7 +101,7 @@ resource "terraform_data" "jump_architecture_precheck" {
     }
     precondition {
       condition     = !var.master_public_ipv4_enabled
-      error_message = "Use a private-only control-plane: set master_public_ipv4_enabled = false. Access the API via the load balancer or from inside the network."
+      error_message = "Use a private-only control-plane: set master_public_ipv4_enabled = false. Access the API via an optional API load balancer (expose_kubernetes_api_via_load_balancer), SSH tunnel through the jump host, or from inside the network."
     }
   }
 }
@@ -238,7 +259,10 @@ module "compute" {
   ]
 }
 
+# Workers load balancer (default lb_services: 80→30080, 443→30443). Set lb_services = [] to disable.
 module "workers_lb" {
+  count = local.workers_lb_enabled ? 1 : 0
+
   source = "../loadbalancer"
 
   name                   = "${var.cluster_name}-workers"
@@ -248,5 +272,25 @@ module "workers_lb" {
   target_server_ids      = local.worker_target_ids
   use_private_ip_targets = true
   services               = var.lb_services
-  labels                 = local.common_labels
+  labels                 = merge(local.common_labels, { role = "workers" })
+
+  depends_on = [module.compute]
+}
+
+# Dedicated LB for kube-apiserver (targets control-plane only). Optional; see expose_kubernetes_api_via_load_balancer.
+module "kube_api_lb" {
+  count = var.expose_kubernetes_api_via_load_balancer ? 1 : 0
+
+  source = "../loadbalancer"
+
+  name                   = "${var.cluster_name}-kube-api"
+  load_balancer_type     = local.effective_kubernetes_api_lb_type
+  location               = var.location
+  network_id             = module.network.network_id
+  target_server_ids      = [local.master_target_id]
+  use_private_ip_targets = true
+  services               = local.kube_api_lb_services
+  labels                 = merge(local.common_labels, { role = "kube-api" })
+
+  depends_on = [module.compute]
 }

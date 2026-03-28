@@ -1,53 +1,51 @@
 ---
-# =============================================================================
-# Version & apt (pkgs.k8s.io)
-# =============================================================================
-# Prefer kubernetes_version on [kubeadm_cluster:vars] in inventory.
-kubernetes_version: "1.31"
-
+# Kubernetes minor for pkgs.k8s.io (e.g. 1.31). Prefer setting kubernetes_version on [kubeadm_cluster:vars] in inventory (or group_vars/kubeadm_cluster.yml); this value is only a fallback if unset.
+kubernetes_version: "1.35"
+# pkgs.k8s.io (OBS) InRelease may require this signing key; keyserver fallback fixes NO_PUBKEY if Release.key alone is incomplete.
 kubernetes_apt_isv_signing_key_id: "234654DA9A296436"
 kubernetes_apt_enable_keyserver_fallback: true
+# Seconds for get_url when fetching Release.key / apt-key.gpg (avoids indefinite hangs).
 kubernetes_apt_key_download_timeout: 60
+# Passed to gpg --keyserver-options for hkps recv-keys (avoids hanging on unreachable keyservers).
 kubernetes_apt_gpg_keyserver_options: "timeout=20"
 
-# =============================================================================
-# Kubeadm / API
-# =============================================================================
-kubernetes_admin_kubeconfig: /etc/kubernetes/admin.conf
-# After join, copy that kubeconfig to {{ ansible_user }}'s ~/.kube/config so kubectl uses the API server (not localhost:8080).
-# Grants cluster-admin on workers — set false in production if kubectl should only run from control-plane / bastion.
-kubernetes_copy_admin_kubeconfig_to_workers: true
+# Pod CIDR for kubeadm and Calico Installation ipPool (must match).
 pod_network_cidr: "10.244.0.0/16"
-control_plane_endpoint: ""
 
-kubernetes_apiserver_port: 6443
-kubernetes_precheck_apiserver_port_free: true
-kubernetes_precheck_apiserver_port_skip_when_bootstrapped: true
-
-# Preflight: unique /sys/class/dmi/id/product_uuid across kubeadm_cluster (no MAC checks).
-kubernetes_validate_unique_node_identity: true
-
-# =============================================================================
-# Containerd
-# =============================================================================
-containerd_systemd_cgroup: true
-containerd_sandbox_image: ""
-
-# =============================================================================
-# CNI — Calico (Tigera operator)
-# =============================================================================
+# Calico (Tigera operator) — replaces Flannel
 kubernetes_calico_version: "v3.28.2"
 kubernetes_calico_tigera_operator_manifest_url: "https://raw.githubusercontent.com/projectcalico/calico/{{ kubernetes_calico_version }}/manifests/tigera-operator.yaml"
-kubernetes_calico_operator_server_side_apply: true
-kubernetes_calico_operator_field_manager: ansible-calico-operator
+# kubectl wait timeouts (seconds)
 kubernetes_calico_wait_operator_timeout: 300
 kubernetes_calico_wait_calico_timeout: 600
 kubernetes_calico_wait_calico_namespace_retries: 36
 kubernetes_calico_wait_calico_namespace_delay: 10
 
-# =============================================================================
-# Post-CNI verification (kubernetes.core.k8s_info)
-# =============================================================================
+# Containerd (CRI) for kubelet / kubeadm
+# official_binary — matches https://github.com/containerd/containerd/blob/main/docs/getting-started.md
+# (supersedes deprecated contrib/ansible cri-containerd-cni tarballs; see contrib README).
+# distro_apt — distribution "containerd" only (often too old for current kubeadm).
+kubernetes_containerd_install_method: official_binary
+kubernetes_containerd_version: "2.0.2"
+kubernetes_runc_version: "1.4.1"
+kubernetes_cni_plugins_version: "1.9.1"
+kubernetes_containerd_official_download_timeout: 120
+containerd_systemd_cgroup: true
+# Optional: set to your cluster’s pause image (e.g. registry.k8s.io/pause:3.10). Empty = leave containerd default.
+containerd_sandbox_image: ""
+
+control_plane_endpoint: ""
+
+# Default kube-apiserver secure port (kubeadm); pre-check runs on control-plane nodes only.
+kubernetes_apiserver_port: 6443
+kubernetes_precheck_apiserver_port_free: true
+# If /etc/kubernetes/admin.conf exists, skip 6443 check (apiserver already listening on re-runs).
+kubernetes_precheck_apiserver_port_skip_when_bootstrapped: true
+
+# Kubeadm preflight: unique product_uuid + MACs across kubeadm_cluster (requires role on all cluster nodes in the same play).
+kubernetes_validate_unique_node_identity: true
+
+# postchecks/main.yml — wait for API / nodes after CNI
 kubernetes_verify_api_retries: 30
 kubernetes_verify_api_delay: 5
 kubernetes_verify_nodes_retries: 36

@@ -1,0 +1,179 @@
+---
+# Containerd CRI for kubelet / kubeadm.
+#
+# Official install (default) follows:
+#   https://github.com/containerd/containerd/blob/main/docs/getting-started.md
+# The older contrib playbook described in:
+#   https://github.com/containerd/containerd/blob/main/contrib/ansible/README.md
+# used deprecated "cri-containerd-cni-*.tar.gz" bundles (removed for containerd 2.x).
+#
+# This role installs: containerd tarball → /usr/local, runc → /usr/local/sbin/runc,
+# CNI plugins → /opt/cni/bin, and the upstream containerd.service unit.
+
+- name: Resolve architecture for containerd / runc / CNI release artifacts
+  ansible.builtin.set_fact:
+    kubernetes_ctd_goarch: >-
+      {{ 'amd64' if ansible_facts['architecture'] in ['x86_64', 'amd64'] else
+         ('arm64' if ansible_facts['architecture'] in ['aarch64', 'arm64'] else ansible_facts['architecture']) }}
+    kubernetes_runc_suffix: >-
+      {{ 'amd64' if ansible_facts['architecture'] in ['x86_64', 'amd64'] else
+         ('arm64' if ansible_facts['architecture'] in ['aarch64', 'arm64'] else ansible_facts['architecture']) }}
+
+# =============================================================================
+# official_binary — https://github.com/containerd/containerd/blob/main/docs/getting-started.md
+# =============================================================================
+- name: Install containerd from official GitHub release (binary tarball)
+  when: kubernetes_containerd_install_method == 'official_binary'
+  block:
+    - name: Remove Debian/Ubuntu containerd packages (avoid /usr/bin vs /usr/local conflict)
+      ansible.builtin.apt:
+        name:
+          - containerd
+          - containerd.io
+        state: absent
+        purge: false
+
+    - name: Install prerequisites for official containerd (Ubuntu/Debian)
+      ansible.builtin.apt:
+        name:
+          - curl
+          - tar
+          - apt-transport-https
+          - btrfs-progs
+          - libseccomp2
+          - util-linux
+        state: present
+        update_cache: false
+      when: ansible_facts['os_family'] == 'Debian'
+
+    - name: Unpack containerd release to /usr/local
+      ansible.builtin.unarchive:
+        src: >-
+          https://github.com/containerd/containerd/releases/download/v{{ kubernetes_containerd_version }}/containerd-{{ kubernetes_containerd_version }}-linux-{{ kubernetes_ctd_goarch }}.tar.gz
+        dest: /usr/local
+        remote_src: true
+        creates: /usr/local/bin/containerd
+
+    - name: Check whether runc is already present
+      ansible.builtin.stat:
+        path: /usr/local/sbin/runc
+      register: kubernetes_runc_binary
+
+    - name: Install runc from opencontainers/runc releases
+      ansible.builtin.get_url:
+        url: >-
+          https://github.com/opencontainers/runc/releases/download/v{{ kubernetes_runc_version }}/runc.{{ kubernetes_runc_suffix }}
+        dest: /usr/local/sbin/runc
+        mode: "0755"
+        timeout: "{{ kubernetes_containerd_official_download_timeout | int }}"
+      when: not kubernetes_runc_binary.stat.exists
+
+    - name: Ensure CNI plugins directory exists
+      ansible.builtin.file:
+        path: /opt/cni/bin
+        state: directory
+        mode: "0755"
+
+    - name: Install CNI plugins to /opt/cni/bin
+      ansible.builtin.unarchive:
+        src: >-
+          https://github.com/containernetworking/plugins/releases/download/v{{ kubernetes_cni_plugins_version }}/cni-plugins-linux-{{ kubernetes_ctd_goarch }}-v{{ kubernetes_cni_plugins_version }}.tgz
+        dest: /opt/cni/bin
+        remote_src: true
+        creates: /opt/cni/bin/bridge
+
+    - name: Ensure systemd unit path under /usr/local exists
+      ansible.builtin.file:
+        path: /usr/local/lib/systemd/system
+        state: directory
+        mode: "0755"
+
+    - name: Install upstream containerd.service (expects /usr/local/bin/containerd)
+      ansible.builtin.copy:
+        src: containerd.service
+        dest: /usr/local/lib/systemd/system/containerd.service
+        mode: "0644"
+      notify: Reload systemd for containerd
+
+    - name: Load br_netfilter kernel module
+      ansible.builtin.command: modprobe br_netfilter
+      args:
+        creates: /sys/module/br_netfilter
+      failed_when: false
+      changed_when: false
+
+    - name: Persist sysctl for Kubernetes networking (matches contrib/ansible cri flow)
+      ansible.builtin.copy:
+        dest: /etc/sysctl.d/99-kubernetes-cri.conf
+        mode: "0644"
+        content: |
+          net.bridge.bridge-nf-call-iptables = 1
+          net.ipv4.ip_forward = 1
+
+    - name: Apply sysctl settings
+      ansible.builtin.command: sysctl --system
+      changed_when: false
+
+# =============================================================================
+# distro_apt — only distribution packages
+# =============================================================================
+- name: Install containerd from distribution repositories (distro_apt)
+  when: kubernetes_containerd_install_method == 'distro_apt'
+  ansible.builtin.apt:
+    name: containerd
+    state: present
+    update_cache: false
+
+# =============================================================================
+# Common: kubeadm dependency + CRI config (all methods)
+# =============================================================================
+- name: Install socat (kubeadm port-forward)
+  ansible.builtin.apt:
+    name: socat
+    state: present
+    update_cache: false
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Set containerd binary path for config generation
+  ansible.builtin.set_fact:
+    kubernetes_containerd_binary: >-
+      {{ '/usr/local/bin/containerd' if kubernetes_containerd_install_method == 'official_binary' else 'containerd' }}
+
+- name: Ensure containerd config directory exists
+  ansible.builtin.file:
+    path: /etc/containerd
+    state: directory
+    mode: "0755"
+
+- name: Generate default containerd configuration
+  ansible.builtin.shell: "set -o pipefail && {{ kubernetes_containerd_binary }} config default > /etc/containerd/config.toml"
+  args:
+    executable: /bin/bash
+    creates: /etc/containerd/config.toml
+
+# Omit replace_all (unsupported on older ansible-core).
+- name: Use systemd cgroup driver in containerd (required for kubelet with systemd)
+  ansible.builtin.replace:
+    path: /etc/containerd/config.toml
+    regexp: 'SystemdCgroup\s*=\s*false'
+    replace: 'SystemdCgroup = true'
+  when: containerd_systemd_cgroup | bool
+  notify: Restart containerd
+
+- name: Align containerd sandbox (pause) image with Kubernetes
+  ansible.builtin.replace:
+    path: /etc/containerd/config.toml
+    regexp: '^(\s*sandbox_image\s*=\s*)".*"'
+    replace: '\1"{{ containerd_sandbox_image }}"'
+  when: containerd_sandbox_image | default('') | length > 0
+  notify: Restart containerd
+
+- name: Ensure containerd is enabled and running
+  ansible.builtin.systemd:
+    name: containerd
+    state: started
+    enabled: true
+    daemon_reload: true
+
+- name: Apply pending containerd handlers (unit reload / config restart)
+  ansible.builtin.meta: flush_handlers

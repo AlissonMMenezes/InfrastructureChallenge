@@ -1,0 +1,86 @@
+---
+# Kubeadm / Kubernetes expect unique SMBIOS product_uuid and non-colliding NIC MACs across nodes.
+# Per-host tasks run on all hosts first (linear strategy); run_once validation runs after every host has facts.
+# Ref: https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
+
+- name: Collect MAC addresses of non-loopback interfaces (sysfs; same data as ip link / ifconfig)
+  ansible.builtin.shell: |
+    set -euo pipefail
+    for dev in /sys/class/net/*; do
+      name="$(basename "$dev")"
+      [ "$name" = lo ] && continue
+      [ -r "$dev/address" ] || continue
+      tr '[:upper:]' '[:lower:]' < "$dev/address"
+    done | sort -u
+  args:
+    executable: /bin/bash
+  register: kubernetes_identity_macs_cmd
+  changed_when: false
+
+- name: Read SMBIOS product UUID (same as cat /sys/class/dmi/id/product_uuid)
+  ansible.builtin.command:
+    argv:
+      - cat
+      - /sys/class/dmi/id/product_uuid
+  register: kubernetes_identity_uuid_cmd
+  changed_when: false
+
+- name: Normalize node identity facts for uniqueness checks
+  ansible.builtin.set_fact:
+    kubernetes_node_mac_list: "{{ kubernetes_identity_macs_cmd.stdout_lines | map('trim') | reject('equalto', '') | list }}"
+    kubernetes_node_product_uuid: "{{ kubernetes_identity_uuid_cmd.stdout | trim | lower }}"
+
+- name: Assert this host has at least one non-loopback MAC
+  ansible.builtin.assert:
+    that:
+      - kubernetes_node_mac_list | length > 0
+    fail_msg: >-
+      No non-loopback MAC addresses found on {{ inventory_hostname }}.
+      Check network interfaces (ip link / ifconfig -a).
+
+- name: Assert this host has a non-empty product_uuid
+  ansible.builtin.assert:
+    that:
+      - kubernetes_node_product_uuid | length > 0
+      - kubernetes_node_product_uuid not in ['00000000-0000-0000-0000-000000000000', 'ffffffff-ffff-ffff-ffff-ffffffffffff']
+    fail_msg: >-
+      Invalid or missing product_uuid on {{ inventory_hostname }} (read /sys/class/dmi/id/product_uuid).
+      Cloned VMs may need unique SMBIOS values.
+
+- name: Ensure every kubeadm_cluster host has identity facts (run kubernetes role on all cluster nodes in this play)
+  ansible.builtin.assert:
+    that:
+      - hostvars[item].kubernetes_node_product_uuid is defined
+      - hostvars[item].kubernetes_node_mac_list is defined
+    fail_msg: >-
+      Missing identity facts for {{ item }} — include it in the play or run the kubernetes role on all kubeadm_cluster hosts together.
+  loop: "{{ groups['kubeadm_cluster'] | default([]) }}"
+  delegate_to: localhost
+  run_once: true
+  become: false
+
+- name: Validate product_uuid is unique across kubeadm_cluster
+  ansible.builtin.assert:
+    that:
+      - _cluster_uuids | length == (_cluster_uuids | unique | length)
+    fail_msg: >-
+      Duplicate SMBIOS product_uuid across nodes (must be unique per machine).
+      UUIDs: {{ _cluster_uuids | to_json }}
+  vars:
+    _cluster_uuids: "{{ groups['kubeadm_cluster'] | default([]) | map('extract', hostvars, 'kubernetes_node_product_uuid') | list }}"
+  delegate_to: localhost
+  run_once: true
+  become: false
+
+- name: Validate MAC addresses are unique across kubeadm_cluster (no shared NIC identity between nodes)
+  ansible.builtin.assert:
+    that:
+      - _cluster_all_macs | length == (_cluster_all_macs | unique | length)
+    fail_msg: >-
+      Duplicate MAC address seen on more than one node (flattened non-loopback MACs from all nodes).
+      MAC list: {{ _cluster_all_macs | to_json }}
+  vars:
+    _cluster_all_macs: "{{ groups['kubeadm_cluster'] | default([]) | map('extract', hostvars, 'kubernetes_node_mac_list') | flatten | list }}"
+  delegate_to: localhost
+  run_once: true
+  become: false

@@ -1,0 +1,21 @@
+# Scraped by Prometheus (kube-prometheus-stack) — requires /metrics on the app (see demo-app instrumentation).
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: demo-api
+  namespace: app-dev
+  labels:
+    app.kubernetes.io/name: demo-api
+    app.kubernetes.io/component: metrics
+spec:
+  selector:
+    matchLabels:
+      app: demo-api
+  namespaceSelector:
+    matchNames:
+      - app-dev
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 30s
+      scrapeTimeout: 10s

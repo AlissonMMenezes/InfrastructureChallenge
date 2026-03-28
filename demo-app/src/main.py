@@ -1,6 +1,7 @@
 import os
 
 from fastapi import FastAPI
+from prometheus_fastapi_instrumentator import Instrumentator
 from pydantic import BaseModel
 import psycopg
 
@@ -12,6 +13,7 @@ DB_USER = os.getenv("DB_USER", "app")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "app")
 
 app = FastAPI(title="demo-api")
+Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
 
 
 class Item(BaseModel):

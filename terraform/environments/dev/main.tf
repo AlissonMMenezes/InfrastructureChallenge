@@ -29,20 +29,12 @@ module "kubernetes" {
   jump_public_ipv4_enabled = true
   jump_public_ipv6_enabled = false
 
+  # Optional: dedicated LB → control-plane:6443 (kubectl from the Internet). Workers LB is always on by default (see module lb_services).
+  expose_kubernetes_api_via_load_balancer = false
+  kubernetes_api_lb_listen_port           = 443
+
   lb_type = "lb11"
-  lb_services = [
-    {
-      protocol              = "tcp"
-      listen_port           = 443
-      destination_port      = 6443
-      proxyprotocol         = false
-      health_check_protocol = "tcp"
-      health_check_port     = 6443
-      health_check_interval = 10
-      health_check_timeout  = 5
-      health_check_retries  = 3
-    }
-  ]
+  # Workers LB: uses module default (TCP 80→30080, 443→30443). Set lb_services = [] to disable.
 
   labels = {
     environment = "dev"
@@ -59,7 +51,13 @@ output "nodes" {
 }
 
 output "kube_api_load_balancer_ipv4" {
-  value = module.kubernetes.load_balancer.ipv4
+  description = "Public IPv4 of the optional Kubernetes API load balancer (null if disabled)"
+  value       = module.kubernetes.kube_api_load_balancer != null ? module.kubernetes.kube_api_load_balancer.ipv4 : null
+}
+
+output "workers_load_balancer_ipv4" {
+  description = "Public IPv4 of the workers load balancer (module default unless lb_services = [])"
+  value       = module.kubernetes.load_balancer != null ? module.kubernetes.load_balancer.ipv4 : null
 }
 
 output "cluster_nat_egress" {

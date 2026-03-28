@@ -10,7 +10,7 @@ This environment provisions infrastructure through `hetzner-cluster.tf`, which u
 - **Jump / bastion subnet** `jump_subnet_cidr` (e.g. `10.50.1.0/24`) — implemented by the reusable **`terraform/modules/nat-gateway`** module: **public IPv4**, **SNAT** for `cluster_subnet_cidr`, **SSH** entry point for admins
 - **Cluster subnet** `cluster_subnet_cidr` (e.g. `10.50.2.0/24`) — **control-plane and workers** use **private IPs only** (no public IPv4 on the master by default)
 
-**Hetzner load balancers** still only handle **inbound** traffic (e.g. kube-apiserver via workers). They do **not** provide outbound NAT.
+**Hetzner load balancers** only handle **inbound** traffic. By default the module creates a **workers** LB (see `lb_services`: **80→30080** and **443→30443**, typical ingress NodePorts). Exposing the **Kubernetes API** on a public LB is **optional** (`expose_kubernetes_api_via_load_balancer`): a second LB targets the **control-plane** on **6443** (one target pool per LB, so API and workers cannot share one LB). They do **not** provide outbound NAT.
 
 Egress for cluster nodes (Hetzner L3 networks):
 
@@ -70,8 +70,21 @@ terraform apply tf.plan
 ## Useful outputs
 
 - `nodes` — `jump`, `master`, `workers` (IPs)
-- `kube_api_load_balancer_ipv4`
+- `kube_api_load_balancer_ipv4` — set when `expose_kubernetes_api_via_load_balancer = true`
+- `workers_load_balancer_ipv4` — set when `lb_services` is non-empty
 - `cluster_nat_egress` — NAT gateway private IP and hints
+
+### Upgrading from the old single workers LB (API on `lb_services`)
+
+Previously, API exposure used `lb_services` on the **workers** LB (incorrect target for apiserver). The module now uses an optional **`kube_api_lb`** to the **master**; the **workers** LB stays on by default and can be turned off with `lb_services = []`.
+
+After changing module addresses, refresh state so Terraform does not recreate resources unnecessarily:
+
+```bash
+terraform state mv 'module.kubernetes.module.workers_lb' 'module.kubernetes.module.workers_lb[0]'
+```
+
+Only run this if your state still has `module.workers_lb` without `[0]` and your new plan expects `module.workers_lb[0]`. If you removed the workers LB (`lb_services = []`), Terraform will destroy the old workers LB and create `module.kubernetes.module.kube_api_lb[0]` instead — review the plan.
 
 ## SSH and Ansible
 

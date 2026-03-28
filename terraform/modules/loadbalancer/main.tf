@@ -32,6 +32,9 @@ resource "hcloud_load_balancer_target" "servers" {
   load_balancer_id = hcloud_load_balancer.this.id
   server_id        = each.value
   use_private_ip   = var.use_private_ip_targets
+
+  # Hetzner requires the LB to be on the private network before adding server targets with use_private_ip.
+  depends_on = [hcloud_load_balancer_network.this]
 }
 
 resource "hcloud_load_balancer_service" "this" {
@@ -40,6 +43,11 @@ resource "hcloud_load_balancer_service" "this" {
   }
 
   load_balancer_id = hcloud_load_balancer.this.id
+
+  depends_on = [
+    hcloud_load_balancer_network.this,
+    hcloud_load_balancer_target.servers,
+  ]
   protocol         = each.value.protocol
   listen_port      = each.value.listen_port
   destination_port = each.value.destination_port

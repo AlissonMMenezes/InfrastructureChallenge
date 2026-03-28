@@ -12,6 +12,10 @@ spec:
   instances: 3
   primaryUpdateStrategy: unsupervised
 
+  # PodMonitors for cnpg metrics (:9187) — picked up by kube-prometheus-stack Prometheus.
+  monitoring:
+    enablePodMonitor: true
+
   storage:
     size: 10Gi
 

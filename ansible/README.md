@@ -127,21 +127,20 @@ ansible-playbook -i inventory/dev-test-cluster.ini playbooks/bootstrap-k8s.yml
 
 ### What the playbook does (order)
 
-The playbook only wires **hosts** + **`roles:`**; implementation is in **`roles/kubernetes/`** (see **`roles/kubernetes/README.md`** for phases and **`tasks_from`** files).
-
-1. **Prepare all nodes** — **`base`** + **`kubernetes`** (default **`tasks/main.yml`**).
-2. **Control plane** — **`kubernetes`** **`tasks_from: control_plane.yml`**.
-3. **Workers** — **`kubernetes`** **`tasks_from: workers.yml`**.
-4. **CNI** — **`kubernetes`** **`tasks_from: cni.yml`** (Calico via **`kubernetes.core`**, ≥ 2.4).
-5. **Verify** — **`kubernetes`** **`tasks_from: verify_cluster.yml`** (**`kubernetes.core.k8s_info`**).
+1. **Prepare all nodes** (`hosts: kubeadm_cluster`): **`base`**, **`kubernetes`** roles — containerd, Kubernetes apt repo/packages, kubelet, validation, etc.
+2. **Initialize control plane** (`hosts: kubeadm_control_plane`): **`include_role`** **`kubernetes`** **`tasks_from: master/main.yml`** — **`kubeadm init`**, copy **`admin.conf`** to **`~/.kube/config`**, join token.
+3. **Join workers** (`hosts: kubeadm_workers`): **`include_role`** **`kubernetes`** **`tasks_from: worker/main.yml`**.
+4. **Install CNI** (Calico) on control-plane: **`include_role`** **`kubernetes`** **`tasks_from: network/main.yml`** — **`python3-kubernetes`**, **`kubectl apply`** Tigera operator + templated CRs; **`pod_network_cidr`** must match kubeadm.
+5. **Verify cluster**: **`include_role`** **`kubernetes`** **`tasks_from: postchecks/main.yml`** — **`kubectl`** **`/readyz`**, **`kubectl get nodes`**.
 
 ### After bootstrap — quick checks
 
 On a control-plane node (or via Ansible ad-hoc):
 
-- **`kubectl get nodes`** / **`kubectl get pods -A`** — optional manual checks (the role verifies via **`kubernetes.core`**).
+- **`kubectl get nodes`** — all **Ready**.
+- **`kubectl get pods -A`** — system pods running.
 
-The **`kubernetes`** role copies **`{{ kubernetes_admin_kubeconfig }}`** to **`~/.kube/config`** on the **control plane** and, when **`kubernetes_copy_admin_kubeconfig_to_workers`** is **`true`** (default), on **workers** after join — so **`kubectl`** uses the real API URL instead of **`http://localhost:8080`**. Disable on workers in production if you do not want cluster-admin credentials there.
+The **`kubernetes`** role copies **`/etc/kubernetes/admin.conf`** to **`~/.kube/config`** for the Ansible/SSH user on the control plane so **`kubectl`** does not fall back to **`http://localhost:8080`**. On workers, optional copies are controlled by role variables in **`roles/kubernetes/defaults/main.yml`**.
 
 **`fluxcd`** role: **`flux install`**, **`flux bootstrap github`**, and **`flux check`** stay on the **`flux`** CLI (not replaceable by **`kubernetes.core.k8s`** without reimplementing Flux’s workflow).
 
@@ -248,25 +247,23 @@ Defined in **`roles/fluxcd/defaults/main.yml`**; override via inventory, `group_
 
 Set **`kubernetes_version`** on **`kubeadm_cluster`** so apt uses **`pkgs.k8s.io/.../v<minor>/deb/`**. Must be a **published** minor (e.g. `1.31`).
 
-### Kubeadm preflight: unique SMBIOS `product_uuid`
+### Kubeadm preflight: unique `product_uuid` and MACs
 
-When **`kubernetes_validate_unique_node_identity`** is `true`, **`validate_cluster_node_identity.yml`** reads **`/sys/class/dmi/id/product_uuid`** on each node and asserts it is **non-empty**, **not an all-zero/all-f mask UUID**, and **unique across `kubeadm_cluster`**. No MAC address checks. Disable only if you must (**not** recommended): **`kubernetes_validate_unique_node_identity: false`**.
+The **`kubernetes`** role runs **`tasks/prechecks/validate_cluster_node_identity.yml`** when **`kubernetes_validate_unique_node_identity`** is `true`: collects non-loopback MACs and **`product_uuid`**, asserts **no duplicates** across **`kubeadm_cluster`**. Disable only if you must (**not** recommended): **`kubernetes_validate_unique_node_identity: false`**.
 
 ### Control-plane port precheck
 
-**`precheck_control_plane_ports.yml`** fails if **TCP 6443** (or **`kubernetes_apiserver_port`**) is already listening **before** first bootstrap. If **`/etc/kubernetes/admin.conf`** exists, the check is skipped. Tunables: **`kubernetes_precheck_apiserver_port_skip_when_bootstrapped`**, **`kubernetes_precheck_apiserver_port_free`**.
+**`tasks/prechecks/control_plane_ports.yml`** fails if **TCP 6443** (or **`kubernetes_apiserver_port`**) is already listening **before** first bootstrap. If **`/etc/kubernetes/admin.conf`** exists, the check is skipped. Tunables: **`kubernetes_precheck_apiserver_port_skip_when_bootstrapped`**, **`kubernetes_precheck_apiserver_port_free`**.
 
 ### Container runtime & Kubernetes apt
 
-Installs **containerd**, then Kubernetes packages via deb822 **`kubernetes.sources`**, **`Release.key`** → keyring, etc. Optional **`kubernetes_apt_enable_keyserver_fallback`** helps with **NO_PUBKEY**. See **`roles/kubernetes/defaults/main.yml`**.
+Installs **containerd** per [containerd getting-started](https://github.com/containerd/containerd/blob/main/docs/getting-started.md) by default (**`kubernetes_containerd_install_method: official_binary`**): release tarball to **`/usr/local`**, **runc**, **CNI plugins** under **`/opt/cni/bin`**, upstream **`containerd.service`**, sysctl/`br_netfilter` (same idea as [contrib/ansible](https://github.com/containerd/containerd/blob/main/contrib/ansible/README.md), without deprecated **`cri-containerd-cni-*`** bundles). Alternative: **`distro_apt`** (distro package only) — see **`roles/kubernetes/defaults/main.yml`**. Then Kubernetes packages via deb822 **`kubernetes.sources`**, **`Release.key`** → keyring; optional **`kubernetes_apt_enable_keyserver_fallback`** for **NO_PUBKEY**.
 
 ### Calico CNI (Tigera operator)
 
-**`roles/kubernetes/tasks/cni.yml`** uses **`kubernetes.core.k8s`** with **`apply: true`** and **`server_side_apply`** (when **`kubernetes_calico_operator_server_side_apply`**) for the upstream **Tigera operator** manifest (**`src`** URL — needs **`kubernetes.core` ≥ 2.4**), because the **`installations.operator.tigera.io`** CRD is too large for client-only apply annotations (**256KiB** limit). **`kubernetes.core.k8s`** then applies **`calico-custom-resources.yaml.j2`** from **`/tmp`**. **`kubernetes.core.k8s_info`** waits for **`tigera-operator`** **Deployment** **Available**, **`calico-system`** **Namespace**, and each **Pod** **Ready**. **`kubernetes_admin_kubeconfig`** defaults to **`/etc/kubernetes/admin.conf`**.
+**`roles/kubernetes/tasks/network/main.yml`** applies the upstream **Tigera operator** manifest with **`kubectl apply`**, then **`calico-custom-resources.yaml.j2`** ( **`Installation`** + **`APIServer`** ). The **`Installation`** `ipPools[].cidr` is **`{{ pod_network_cidr }}`** and must match **`kubeadm init --pod-network-cidr`**.
 
-Variables in **`roles/kubernetes/defaults/main.yml`**: **`kubernetes_calico_version`**, **`kubernetes_calico_tigera_operator_manifest_url`**, **`kubernetes_calico_operator_server_side_apply`**, **`kubernetes_calico_operator_field_manager`**, **`kubernetes_admin_kubeconfig`**, and **`kubernetes_calico_wait_*`** timeouts/retries.
-
-If a **previous** client-side apply failed partway through, delete a stuck **`installations.operator.tigera.io`** CRD if needed (`kubectl delete crd installations.operator.tigera.io`) and re-run the playbook so server-side apply can recreate it.
+Variables in **`roles/kubernetes/defaults/main.yml`**: **`kubernetes_calico_version`**, **`kubernetes_calico_tigera_operator_manifest_url`**, and **`kubernetes_calico_wait_*`** timeouts/retries.
 
 **UFW:** **`security`** allows **UDP 4789** (VXLAN) and **TCP 179** (BGP) on cluster nodes. Replacing **Flannel** (UDP 8472) with Calico.
 

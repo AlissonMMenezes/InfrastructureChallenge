@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: demo-api
-          image: ghcr.io/example/demo-api:0.1.0
+          image: ghcr.io/alissonmachado/demo-app:0.1.0 # {"$imagepolicy": "flux-system:demo-app"}
           ports:
             - containerPort: 8080
           env:

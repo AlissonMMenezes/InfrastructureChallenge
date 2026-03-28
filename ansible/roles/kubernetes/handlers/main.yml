@@ -1,4 +1,8 @@
 ---
+- name: Reload systemd for containerd
+  ansible.builtin.systemd:
+    daemon_reload: true
+
 - name: Restart containerd
   ansible.builtin.service:
     name: containerd

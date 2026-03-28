@@ -1,0 +1,6 @@
+---
+- name: Install and configure containerd (CRI)
+  ansible.builtin.include_tasks: node_prep/containerd.yml
+
+- name: Install Kubernetes packages and kubelet (containerd)
+  ansible.builtin.include_tasks: node_prep/kubernetes_packages.yml

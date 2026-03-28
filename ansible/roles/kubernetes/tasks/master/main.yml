@@ -1,5 +1,4 @@
 ---
-# Phase: control plane (play: kubeadm_control_plane, tasks_from: control_plane.yml).
 - name: Resolve control-plane advertise address
   ansible.builtin.set_fact:
     effective_control_plane_endpoint: "{{ control_plane_endpoint | default('', true) | trim | default(hostvars[groups['kubeadm_control_plane'][0]].ansible_host, true) }}"
@@ -10,7 +9,7 @@
     --pod-network-cidr={{ pod_network_cidr }}
     --apiserver-advertise-address={{ effective_control_plane_endpoint }}
   args:
-    creates: "{{ kubernetes_admin_kubeconfig }}"
+    creates: /etc/kubernetes/admin.conf
 
 # Without ~/.kube/config, kubectl talks to http://localhost:8080 (connection refused). Applies to root and sudo users.
 # Use ansible_facts[...] (no ansible_ prefix) — avoids INJECT_FACTS_AS_VARS deprecation.
@@ -24,7 +23,7 @@
 
 - name: Install admin kubeconfig for default kubectl
   ansible.builtin.copy:
-    src: "{{ kubernetes_admin_kubeconfig }}"
+    src: /etc/kubernetes/admin.conf
     dest: "{{ ansible_facts['user_dir'] }}/.kube/config"
     owner: "{{ ansible_facts['user_id'] }}"
     group: "{{ ansible_facts['user_gid'] }}"

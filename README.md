@@ -37,7 +37,7 @@ All the code developed here was done with the support of [Cursor](https://cursor
   - [X] Ansible Code to deploy FluxCD on the cluster
 
 #### 22.03.2026 - GitOps Code and Workflow
-- [-] GitOps Code and Workflow
+- [X] GitOps Code and Workflow
   - [X] Create manifests for required operators
     - [X] CloudNativePG
   - [X] Configure CloudNativePG
@@ -47,15 +47,15 @@ All the code developed here was done with the support of [Cursor](https://cursor
   - [ ] Configure Automated Backups
 
 #### 22.03.2026 - Monitoring Setup
-- [ ] Monitoring Setup
-  - [ ] Create manifests for required operators
-    - [ ] Service Monitor
-    - [ ] Exporters
+- [X] Monitoring Setup
+  - [X] Create manifests for required operators
+    - [X] Service Monitor
+    - [X] Exporters
 
 #### 27.03.2026 - Work on Upgrades
 - [ ] Work on Upgrades
   - [ ] PostgreSQL Upgrade
-  - [ ] GitOps Change Management
+  - [X] GitOps Change Management
 
 #### 28.03.2026 - Deploy Applications
 - [ ] Deploy Applications
@@ -169,7 +169,7 @@ The secrets can be dynamically synced into the applications using the [External 
 
 ## Hetzner infrastructure architecture
 
-Terraform `kubernetes` module (see `terraform/environments/dev/`): one VPC, **two subnets**, **BastionServer** with public IPv4 and **SNAT** for the cluster subnet, **private-only** control-plane and workers, optional **load balancer** for inbound traffic.
+Terraform `kubernetes` module (see `terraform/environments/dev/`): one VPC, **two subnets**, **BastionServer** with public IPv4 and **SNAT** for the cluster subnet, **private-only** control-plane and workers, a **workers load balancer** by default for inbound app traffic, and an **optional** second LB for the **Kubernetes API** (control-plane).
 
 To protect all the nodes, none of it have a public IP Address, then to access it, it is necessary to use the BastionServer. I used to have the same configuration in the past, but i provided the cluster using [KOPS](https://kops.sigs.k8s.io)
 
@@ -212,7 +212,7 @@ flowchart TB
 |------|-------------|
 | **Admin → cluster** | SSH only to **jump** from the Internet; Ansible uses **BastionServer** to reach master/worker private IPs. |
 | **Cluster → Internet** | `apt`, image pulls, etc.: **default route via BastionServer**; BastionServer applies **SNAT** for the cluster subnet. |
-| **LB** | **Inbound** only (Hetzner LB does not provide outbound NAT). Tune target group (workers vs control-plane) for your API ingress design. |
+| **LB** | **Inbound** only (no outbound NAT). **Workers LB** is on by default (`lb_services`: **80→30080**, **443→30443**). **API LB** is optional (`expose_kubernetes_api_via_load_balancer` → master **6443**). |
 | **Firewalls** | Separate rules for **BastionServer** vs **Kubernetes** nodes (SSH to nodes restricted to jump subnet + optional extra CIDRs). |
 
 ## Quick start

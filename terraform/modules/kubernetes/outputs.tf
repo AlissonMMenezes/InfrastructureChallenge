@@ -38,11 +38,19 @@ output "workers" {
 }
 
 output "load_balancer" {
-  description = "Workers load balancer details"
-  value = {
-    id   = module.workers_lb.id
-    ipv4 = module.workers_lb.ipv4
-  }
+  description = "Workers load balancer (defaults: TCP 80→30080, 443→30443). Null only if lb_services = []"
+  value = try({
+    id   = module.workers_lb[0].id
+    ipv4 = module.workers_lb[0].ipv4
+  }, null)
+}
+
+output "kube_api_load_balancer" {
+  description = "Optional load balancer in front of kube-apiserver (control-plane target); null unless expose_kubernetes_api_via_load_balancer"
+  value = try({
+    id   = module.kube_api_lb[0].id
+    ipv4 = module.kube_api_lb[0].ipv4
+  }, null)
 }
 
 output "cluster_nat_egress" {

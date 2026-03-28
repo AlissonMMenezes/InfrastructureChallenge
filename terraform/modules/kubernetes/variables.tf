@@ -163,13 +163,37 @@ variable "labels" {
 }
 
 variable "lb_type" {
-  description = "Hetzner load balancer type"
+  description = "Hetzner load balancer type (used for the workers LB and as the default type for the optional Kubernetes API LB)"
   type        = string
   default     = "lb11"
 }
 
+variable "expose_kubernetes_api_via_load_balancer" {
+  description = "Optional: when true, create a dedicated Hetzner load balancer targeting the control-plane only (master), forwarding to kube-apiserver on 6443. Default false (no public API LB). The workers load balancer is controlled separately by lb_services. Hetzner uses one target pool per LB, so API and worker NodePort services require two LBs."
+  type        = bool
+  default     = false
+}
+
+variable "kubernetes_api_lb_listen_port" {
+  description = "Public listen port on the Kubernetes API load balancer (maps to apiserver 6443 on the control-plane)"
+  type        = number
+  default     = 443
+
+  validation {
+    condition     = var.kubernetes_api_lb_listen_port >= 1 && var.kubernetes_api_lb_listen_port <= 65535
+    error_message = "kubernetes_api_lb_listen_port must be between 1 and 65535."
+  }
+}
+
+variable "kubernetes_api_lb_type" {
+  description = "Hetzner load balancer type for the optional API LB; null uses lb_type"
+  type        = string
+  nullable    = true
+  default     = null
+}
+
 variable "lb_services" {
-  description = "Load balancer services"
+  description = "Services on the workers load balancer (NodePort / ingress, etc.). By default forwards public TCP 80→30080 and 443→30443 on workers (typical ingress NodePorts). Set to [] to skip the workers load balancer entirely."
   type = list(object({
     protocol              = string
     listen_port           = number
@@ -189,6 +213,17 @@ variable "lb_services" {
       proxyprotocol         = false
       health_check_protocol = "tcp"
       health_check_port     = 30080
+      health_check_interval = 10
+      health_check_timeout  = 5
+      health_check_retries  = 3
+    },
+    {
+      protocol              = "tcp"
+      listen_port           = 443
+      destination_port      = 30443
+      proxyprotocol         = false
+      health_check_protocol = "tcp"
+      health_check_port     = 30443
       health_check_interval = 10
       health_check_timeout  = 5
       health_check_retries  = 3
