@@ -29,12 +29,28 @@ spec:
     global:
       enabled: true
       tlsDisable: true
+      # HTTP(S) address of the OpenBao API for injector / CSI when the server is *not* deployed by this chart.
+      # If non-empty, the chart uses "external" mode and does NOT create the StatefulSet — use only with server.enabled: false
+      # and a reachable OpenBao elsewhere. For the default in-cluster server + Ingress, leave empty and set api_addr in standalone.config.
+      externalBaoAddr: ""
     injector:
       enabled: true
     server:
       enabled: true
       standalone:
         enabled: true
+        # Advertises the public URL (TLS terminated at Traefik) for redirects and CLI; in-cluster clients may still use the Service DNS.
+        config: |
+          ui = true
+          api_addr = "https://openbao.alissonmachado.com.br"
+          listener "tcp" {
+            tls_disable = 1
+            address = "[::]:8200"
+            cluster_address = "[::]:8201"
+          }
+          storage "file" {
+            path = "/openbao/data"
+          }
       ha:
         enabled: false
       dataStorage:

@@ -20,7 +20,7 @@ For provisioning and GitOps bootstrap order, see **[Getting started](getting-sta
 
 ## Monitoring
 
-- **kube-prometheus-stack** provides Prometheus, Alertmanager, and **Grafana**. When **Grafana ingress** is enabled in the Helm values, the UI is served at **`https://grafana.alissonmachado.com.br`** (TLS via cert-manager). Admin password: Kubernetes **Secret** in **`monitoring`** created by the chart (commonly named like **`kube-prometheus-stack-grafana`** — confirm with `kubectl get secrets -n monitoring | grep grafana` and read key **`admin-password`**).
+- **kube-prometheus-stack** provides Prometheus, Alertmanager, and **Grafana**. When **Grafana ingress** is enabled in the Helm values, the UI is served at **`https://grafana.alissonmachado.com.br`** (TLS via cert-manager).
 - CloudNativePG emits metrics; **ServiceMonitors** are enabled where configured.
 - Prometheus alerts cover:
   - replication lag,
@@ -28,6 +28,44 @@ For provisioning and GitOps bootstrap order, see **[Getting started](getting-sta
   - pod restarts,
   - PVC saturation,
   - failover events.
+
+### Grafana admin password (kube-prometheus-stack)
+
+The Grafana subchart stores bootstrap credentials in a **Secret** in the **`monitoring`** namespace. With the default **HelmRelease** name **`kube-prometheus-stack`** and no **`grafana.admin.existingSecret`**, the object is usually **`kube-prometheus-stack-grafana`**.
+
+1. **Confirm the Secret name** (if your release name differs, adjust):
+
+   ```bash
+   kubectl get secrets -n monitoring -l app.kubernetes.io/name=grafana
+   ```
+
+   Or list by name pattern:
+
+   ```bash
+   kubectl get secrets -n monitoring | grep grafana
+   ```
+
+2. **Read the password** (replace the Secret name if yours differs):
+
+   ```bash
+   kubectl get secret -n monitoring kube-prometheus-stack-grafana \
+     -o jsonpath='{.data.admin-password}' | base64 -d
+   echo
+   ```
+
+3. **Read the username** (defaults to **`admin`** per **`grafana.adminUser`** in the Helm values; the Secret key is **`admin-user`**):
+
+   ```bash
+   kubectl get secret -n monitoring kube-prometheus-stack-grafana \
+     -o jsonpath='{.data.admin-user}' | base64 -d
+   echo
+   ```
+
+**Notes:**
+
+- Keys are **base64-encoded** in the API; piping through **`base64 -d`** decodes them for use in the browser.
+- If you set **`grafana.admin.existingSecret`** in the **HelmRelease**, credentials live in that Secret instead — use the keys configured there (**`admin-user`** / **`admin-password`** by default).
+- To **rotate** the password, update the Secret (or use Grafana’s UI / API) and ensure the deployment still matches your GitOps intent so Flux does not overwrite manual changes on the next reconcile.
 
 ## TLS certificates (Let’s Encrypt)
 
