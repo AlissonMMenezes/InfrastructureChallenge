@@ -68,3 +68,14 @@ fluxcd_github_bootstrap_no_log: false
 
 # Prefer env GITHUB_TOKEN on the controller; set this when not using the environment (use Vault).
 fluxcd_github_token: ""
+
+# --- GHCR (GitHub Packages) pull secrets (same PAT as above; needs read:packages for private images) ---
+# Creates kubernetes.io/dockerconfigjson Secret fluxcd_ghcr_secret_name in flux-system (and optionally app-dev)
+# after install/bootstrap so image-reflector and workloads can pull ghcr.io/<owner>/...
+fluxcd_ghcr_pull_secret: true
+fluxcd_ghcr_secret_name: ghcr-flux-credentials
+fluxcd_ghcr_server: ghcr.io
+# If empty, uses fluxcd_github_owner. Set explicitly when not using GitHub bootstrap (e.g. flux install only).
+fluxcd_ghcr_docker_username: ""
+fluxcd_ghcr_app_namespace: app-dev
+fluxcd_ghcr_secret_in_app_namespace: true

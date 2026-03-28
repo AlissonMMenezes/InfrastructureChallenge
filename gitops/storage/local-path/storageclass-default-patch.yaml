@@ -1,0 +1,7 @@
+# Mark local-path as the cluster default so Helm charts (OpenBao, CNPG, etc.) bind PVCs without naming a class.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-path
+  annotations:
+    storageclass.kubernetes.io/is-default-class: "true"

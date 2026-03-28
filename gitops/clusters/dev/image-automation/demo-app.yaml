@@ -7,6 +7,9 @@ metadata:
 spec:
   image: ghcr.io/alissonmachado/demo-app
   interval: 1m0s
+  # kubernetes.io/dockerconfigjson — create with Ansible (fluxcd_ghcr_pull_secret) or kubectl; see docs/gitops.md
+  secretRef:
+    name: ghcr-flux-credentials
 
 ---
 apiVersion: image.toolkit.fluxcd.io/v1beta2

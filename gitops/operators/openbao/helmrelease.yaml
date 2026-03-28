@@ -56,6 +56,8 @@ spec:
       dataStorage:
         enabled: true
         size: 10Gi
+        # Requires a default StorageClass or gitops/storage (local-path-provisioner) applied before this release.
+        storageClass: local-path
       resources:
         requests:
           memory: 256Mi

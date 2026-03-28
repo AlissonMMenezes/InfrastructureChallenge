@@ -7,6 +7,10 @@ metadata:
   namespace: monitoring
 spec:
   interval: 10m
+  valuesFrom:
+    - kind: ConfigMap
+      name: kube-prometheus-stack-flux-monitoring
+      valuesKey: flux.yaml
   chart:
     spec:
       chart: kube-prometheus-stack

@@ -21,6 +21,7 @@ For provisioning and GitOps bootstrap order, see **[Getting started](getting-sta
 ## Monitoring
 
 - **kube-prometheus-stack** provides Prometheus, Alertmanager, and **Grafana**. When **Grafana ingress** is enabled in the Helm values, the UI is served at **`https://grafana.alissonmachado.com.br`** (TLS via cert-manager).
+- **Flux CD:** **`PodMonitor`** in **`flux-system`** plus **kube-state-metrics** custom-resource metrics expose **`gotk_reconcile_*`**, **`gotk_resource_info`**, etc. In Grafana, open folder **Flux** for **Flux** (cluster reconciliation) and **Flux Control Plane** dashboards (from **`gitops/operators/kube-prometheus-stack/`**). After upgrade, allow a few minutes for dashboard download jobs and KSM to reload CRS config.
 - CloudNativePG emits metrics; **ServiceMonitors** are enabled where configured.
 - Prometheus alerts cover:
   - replication lag,

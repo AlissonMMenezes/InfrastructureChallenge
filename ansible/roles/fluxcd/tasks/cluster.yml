@@ -126,3 +126,9 @@
     - fluxcd_verify | bool
     - fluxcd_check_result is defined
     - fluxcd_check_result.stdout_lines is defined
+
+- name: Create GHCR docker-registry secrets from GitHub PAT (optional)
+  ansible.builtin.include_tasks: ghcr_pull_secret.yml
+  when:
+    - fluxcd_ghcr_pull_secret | bool
+    - (fluxcd_github_token | default('') | trim | length > 0) or (lookup('ansible.builtin.env', 'GITHUB_TOKEN', default='') | trim | length > 0)

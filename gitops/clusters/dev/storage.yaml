@@ -1,18 +1,17 @@
 ---
+# Installs default StorageClass (local-path) before operators that create PVCs (OpenBao, CNPG, …).
 apiVersion: kustomize.toolkit.fluxcd.io/v1
 kind: Kustomization
 metadata:
-  name: operators
+  name: storage
   namespace: flux-system
 spec:
-  interval: 5m0s
-  path: ./gitops/operators/
+  interval: 10m0s
+  path: ./gitops/storage
   prune: true
-  dependsOn:
-    - name: storage
   retryInterval: 2m0s
   sourceRef:
     kind: GitRepository
     name: flux-system
-  timeout: 20m0s
+  timeout: 5m0s
   wait: true

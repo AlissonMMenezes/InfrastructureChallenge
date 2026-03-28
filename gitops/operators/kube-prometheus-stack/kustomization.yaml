@@ -1,7 +1,15 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
+configMapGenerator:
+  - name: kube-prometheus-stack-flux-monitoring
+    namespace: monitoring
+    options:
+      disableNameSuffixHash: true
+    files:
+      - flux.yaml=flux-values-fragment.yaml
 resources:
   # Namespace must exist before HelmRelease (metadata.namespace: monitoring).
   - namespace.yaml
   - helmrepository.yaml
+  - flux-podmonitor.yaml
   - helmrelease.yaml
