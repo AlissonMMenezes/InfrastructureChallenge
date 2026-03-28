@@ -74,9 +74,78 @@ The Grafana subchart stores bootstrap credentials in a **Secret** in the **`moni
 - Check status: `kubectl get certificate -A` and `kubectl describe certificate -n <ns> <name>`.
 - If HTTP-01 fails, verify **DNS** points to the workers LB, **port 80** is reachable from the Internet to Traefik, and **`ClusterIssuer/letsencrypt-prod`** is **Ready**.
 
-## OpenBao (public ingress)
+## OpenBao
 
-- If **`openbao.alissonmachado.com.br`** ingress is enabled, prefer **strong authentication**, **network restrictions**, and **auditing**; in-cluster integrations should continue using the **cluster DNS** service URL on port **8200**.
+### Public ingress
+
+If **`openbao.alissonmachado.com.br`** ingress is enabled, prefer **strong authentication**, **network restrictions**, and **auditing**; in-cluster integrations should continue using the **cluster DNS** service URL on port **8200** (for example **`http://openbao.openbao-system.svc.cluster.local:8200`**).
+
+### OpenBao initialize and unseal
+
+The Helm chart starts the server, but **does not** run **`bao operator init`** or **`bao operator unseal`**. Until you do, logs show **INFO** lines such as **`security barrier not initialized`** and **`seal configuration missing, not initialized`** — the process is running, but the store is not ready to serve the API.
+
+Do this **once per empty data volume**. If you **delete the PVC** or start on new storage, you must **initialize again** (you get new keys; old secrets are gone).
+
+1. **Confirm the server pod** (name may differ slightly with your release name; default StatefulSet is often **`openbao-0`**):
+
+   ```bash
+   kubectl get pods -n openbao-system -l app.kubernetes.io/name=openbao
+   ```
+
+2. **Discover the main container name** (use it as **`-c`** below if the pod has more than one container):
+
+   ```bash
+   kubectl get pod -n openbao-system openbao-0 -o jsonpath='{.spec.containers[*].name}{"\n"}'
+   ```
+
+3. **Initialize** (prints **unseal key(s)** and a **root token** once — store them securely; the example uses a single key for **dev only**):
+
+   ```bash
+   kubectl exec -n openbao-system openbao-0 -c openbao -- bao operator init \
+     -key-shares=1 -key-threshold=1
+   ```
+
+   For non-throwaway environments, use more shares and a higher threshold (for example **5** shares, **3** required).
+
+4. **Unseal** so the server can serve traffic (with one share, run once and paste the key when prompted):
+
+   ```bash
+   kubectl exec -it -n openbao-system openbao-0 -c openbao -- bao operator unseal
+   ```
+
+5. **Verify**:
+
+   ```bash
+   kubectl exec -n openbao-system openbao-0 -c openbao -- bao status
+   ```
+
+   You want **`Initialized`** **true** and **`Sealed`** **false**.
+
+**After a pod restart** (same PVC, Shamir seal, no auto-unseal): the server may be **sealed** again. Run **`bao operator unseal`** with the **same** key(s); do **not** run **`init`** again or you will make the storage unusable. For production, plan **auto-unseal** (KMS, etc.) instead of relying on manual unseal.
+
+Next, configure **KV** and **Kubernetes auth** for External Secrets (not in Git) — see **[GitOps → Demo app: OpenBao bootstrap](gitops.md#demo-app-postgresql-cnpg-openbao-and-external-secrets-operator)**.
+
+### OpenBao web UI login
+
+The public UI is exposed by **Ingress** in **`gitops/infrastructure/openbao-ingress/`** (in this repo the hostname is **`https://openbao.alissonmachado.com.br`**; TLS is terminated at **Traefik**, and **cert-manager** issues the certificate). Adjust the URL if you change the host in Git.
+
+1. **Prerequisites**
+   - **DNS** for that hostname points at your **workers load balancer** (see Terraform outputs).
+   - **`Certificate`** in **`openbao-system`** is **Ready** (`kubectl get certificate -n openbao-system`).
+   - OpenBao is **initialized**, **unsealed**, and serving (see **[OpenBao initialize and unseal](#openbao-initialize-and-unseal)**).
+
+2. **Open the UI** in a browser: **`https://<your-openbao-host>/`** (for example **`https://openbao.alissonmachado.com.br/`**).
+
+3. **Sign in**
+   - Choose the **Token** method (or the option labeled like **Token** on the sign-in screen).
+   - Paste the **root token** printed by **`bao operator init`** (or another token you created with a suitable policy).
+   - Submit to enter the UI.
+
+**Notes**
+
+- The **root token** is full administrative access; store it like a password. For day-to-day use, prefer **less privileged tokens** or other auth methods configured in OpenBao.
+- If the page does not load, check **Ingress**, **Traefik**, and **Let’s Encrypt** (see **[TLS certificates](#tls-certificates-lets-encrypt)**).
+- If the UI loads but login fails, confirm the server is still **unsealed** (`bao status` via **`kubectl exec`** as above) and that you are using a valid token.
 
 ## Upgrades
 
