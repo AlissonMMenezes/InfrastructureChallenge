@@ -40,6 +40,7 @@ spec:
       standalone:
         enabled: true
         # Advertises the public URL (TLS terminated at Traefik) for redirects and CLI; in-cluster clients may still use the Service DNS.
+        # Keep host + scheme aligned with the browser URL and Ingress host, or the UI can misbehave (e.g. token / API calls).
         config: |
           ui = true
           api_addr = "https://openbao.alissonmachado.com.br"

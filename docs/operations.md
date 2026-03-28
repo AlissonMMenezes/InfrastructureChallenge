@@ -147,6 +147,39 @@ The public UI is exposed by **Ingress** in **`gitops/infrastructure/openbao-ingr
 - If the page does not load, check **Ingress**, **Traefik**, and **Let’s Encrypt** (see **[TLS certificates](#tls-certificates-lets-encrypt)**).
 - If the UI loads but login fails, confirm the server is still **unsealed** (`bao status` via **`kubectl exec`** as above) and that you are using a valid token.
 
+#### Troubleshooting: UI shows **Permission denied** (often HTTP 403) on token login
+
+OpenBao treats a bad or unknown token as **forbidden**; the UI often surfaces that as **Permission denied**, not “invalid token.”
+
+1. **Use the Initial Root Token, not an unseal key**  
+   After **`bao operator init`**, the output includes both **Unseal Key** (long, for **`bao operator unseal`**) and **Initial Root Token** (a separate value). The **Token** field in the UI must be the **root token** line only — never the unseal key.
+
+2. **Paste the full token, exactly once**  
+   Copy the whole token string (often with a prefix such as **`s.`** or **`hvs.`**), with **no** leading **`Root token:`** label, **no** line breaks, and **no** spaces before or after. Wrapped or PDF copy-paste is a common failure mode.
+
+3. **Confirm the token is valid for *this* cluster**  
+   If you **re-ran** **`bao operator init`** or replaced the PVC, older tokens are invalid. Generate a new root token only via a **new** init (destructive) or **`bao operator generate-root`** if you still have unseal keys (see [OpenBao `operator generate-root`](https://openbao.org/docs/commands/operator/generate-root/)).
+
+4. **Verify outside the browser**
+
+   ```bash
+   # Replace TOKEN with your Initial Root Token (same string as UI).
+   kubectl exec -n openbao-system openbao-0 -c openbao -- sh -c \
+     'BAO_ADDR=http://127.0.0.1:8200 BAO_TOKEN="TOKEN" bao token lookup'
+   ```
+
+   If this fails with **permission denied** or **errors**, the token is wrong for this instance or the server is sealed. If it **succeeds** but the UI still fails, try a **private/incognito** window (stale UI token in browser storage) or confirm you open the UI at the **same host and scheme** as **`api_addr`** in **`gitops/operators/openbao/helmrelease.yaml`** (e.g. **`https://openbao.alissonmachado.com.br`** — not `http://`, not a bare IP, unless **`api_addr`** matches).
+
+5. **Optional: check the API over HTTPS (through the ingress)**
+
+   ```bash
+   curl -sS -o /dev/null -w "%{http_code}\n" \
+     -H "X-Vault-Token: TOKEN" \
+     "https://openbao.alissonmachado.com.br/v1/auth/token/lookup-self"
+   ```
+
+   **`200`** means the token is accepted; **`403`** means the server rejected the token (wrong value, revoked, or wrong cluster).
+
 ## Upgrades
 
 - Minor PostgreSQL upgrades performed by updating image tags in Git.
