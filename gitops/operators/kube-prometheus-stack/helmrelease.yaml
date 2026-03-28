@@ -59,6 +59,22 @@ spec:
         enabled: false
       adminUser: admin
       # Password is stored in secret created by the chart (not committed here).
+      ingress:
+        enabled: true
+        ingressClassName: traefik
+        annotations:
+          cert-manager.io/cluster-issuer: letsencrypt-prod
+        hosts:
+          - grafana.alissonmachado.com.br
+        path: /
+        pathType: Prefix
+        tls:
+          - secretName: grafana-tls
+            hosts:
+              - grafana.alissonmachado.com.br
+      grafana.ini:
+        server:
+          root_url: https://grafana.alissonmachado.com.br/
 
     kubeStateMetrics:
       enabled: true

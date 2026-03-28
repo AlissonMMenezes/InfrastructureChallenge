@@ -33,7 +33,8 @@ jobs:
       - name: Prepare image metadata
         id: meta
         run: |
-          echo "image=ghcr.io/${{ github.repository_owner }}/demo-app" >> "$GITHUB_OUTPUT"
+          owner_lc="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          echo "image=ghcr.io/${owner_lc}/demo-app" >> "$GITHUB_OUTPUT"
           echo "semver_tag=0.1.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
           echo "sha_tag=sha-${GITHUB_SHA::12}" >> "$GITHUB_OUTPUT"
 
