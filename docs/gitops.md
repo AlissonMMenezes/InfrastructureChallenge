@@ -29,14 +29,14 @@ The dev entrypoint (`kustomization.yaml`) pulls in, in order:
 |--------|------------------------------|--------------|------|
 | **Operators** | `operators` | `gitops/operators/` | Third-party **operators** installed with **Helm** (Flux `HelmRepository` + `HelmRelease`) |
 | **Applications** | `applications` | `gitops/applications/environments/dev/` | App workloads (Kustomize / plain manifests), e.g. demo app |
-| **Infrastructure** | `infrastructure` | `gitops/infrastructure/` | **Cluster platform** after operators: Traefik, CloudNativePG **database clusters**, shared infra |
+| **Infrastructure** | `infrastructure` | `gitops/infrastructure/` | **Cluster platform** after operators: **Let’s Encrypt** `ClusterIssuer`, Traefik, CloudNativePG **database clusters**, shared infra |
 | **Image automation** | (included in cluster kustomize) | `gitops/clusters/dev/image-automation/` | Flux **ImageRepository** / **ImagePolicy** / **ImageUpdateAutomation** (optional CI → image bumps in Git) |
 
 `dependsOn` in the Flux `Kustomization` CRs enforces order where needed (e.g. infrastructure after operators).
 
 ### Operators vs infrastructure (important)
 
-- **Operators** (`gitops/operators/`): install **software operators** into the cluster — Helm charts for **CloudNativePG**, **cert-manager**, **kube-prometheus-stack**, etc. Each operator usually has its own namespace (`cnpg-system`, `cert-manager`, `monitoring`, …). These components **extend the API** (CRDs) and run controller pods.
+- **Operators** (`gitops/operators/`): install **software operators** into the cluster — Helm charts for **CloudNativePG**, **cert-manager**, **kube-prometheus-stack**, **OpenBao**, **External Secrets Operator**, etc. Each component usually has its own namespace (`cnpg-system`, `cert-manager`, `monitoring`, `openbao-system`, `external-secrets`, …). OpenBao uses the **official Helm chart** (StatefulSet server + optional **injector** webhook); ESO syncs secrets using provider APIs (here, OpenBao via the Vault-compatible provider).
 
 - **Infrastructure** (`gitops/infrastructure/`): **use** those APIs and wire the platform — e.g. **Traefik** ingress HelmRelease, **PostgreSQL `Cluster`** manifests (CNPG), Traefik/Postgres namespaces and supporting objects. This is “what we run **on top of** the operators,” not the operator Helm charts themselves.
 
@@ -64,6 +64,21 @@ flux reconcile kustomization infrastructure -n flux-system --with-source
 ## Layout reference
 
 See **`gitops/README.md`** in the repo for directory conventions, bootstrap assumptions, and path rules.
+
+## Demo app: PostgreSQL (CNPG), OpenBao, and External Secrets Operator
+
+The **dev** overlay patches the CloudNativePG **`Cluster/demo-app-db`** to **`spec.instances: 3`**. **External Secrets Operator** (installed from **`gitops/operators/external-secrets/`**) drives two flows without custom scripts:
+
+1. **`PushSecret/cnpg-demo-app-to-openbao`** (namespace **`app-dev`**) copies CNPG’s **`Secret/demo-app-db-app`** into OpenBao KV v2 at **`secret/demo-app/postgres`** (maps **`hostname` → `host`**, **`uri` → `connection_string`**, plus **`username`**, **`password`**, **`port`**, **`dbname`**).
+2. **`ExternalSecret/demo-app-postgres`** materializes the same path into Kubernetes **`Secret/demo-app-postgres`** with keys **`DB_*`** for **`demo-api`** (`envFrom`).
+
+**`ClusterSecretStore/openbao`** uses the Vault-compatible provider against **`http://openbao.openbao-system.svc.cluster.local:8200`** and **Kubernetes auth** with **`ServiceAccount/external-secrets`** in **`external-secrets`**.
+
+### OpenBao bootstrap (not in Git)
+
+On OpenBao, enable the **`secret`** KV v2 mount (if not already), **Kubernetes auth** at **`kubernetes`**, and a role **`external-secrets`** bound to **`external-secrets`/`external-secrets`** with a policy that allows **read and write** on **`secret/data/demo-app/postgres`**. Until that exists, **`ClusterSecretStore`** and the **PushSecret** / **ExternalSecret** resources stay degraded; **`demo-api`** pods need **`demo-app-postgres`** before they can start.
+
+The OpenBao **injector** is optional for this app; the demo API no longer uses sidecar injection for DB credentials.
 
 ## CI and image automation
 

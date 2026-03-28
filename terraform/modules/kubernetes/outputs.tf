@@ -1,3 +1,8 @@
+output "cluster_name" {
+  description = "Kubernetes cluster name label used for resources"
+  value       = var.cluster_name
+}
+
 output "network" {
   description = "Network module outputs"
   value = {

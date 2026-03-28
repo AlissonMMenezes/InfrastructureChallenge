@@ -53,6 +53,14 @@ Use Terraform outputs to fill **Ansible inventory** (`ansible_host`, bastion jum
 
 Use `terraform/environments/prod/` with its own tfvars and review module variables for sizing, backups, and LB settings.
 
+## Hetzner Object Storage (backup bucket)
+
+The **`terraform/modules/object-storage`** module creates an **S3-compatible bucket** on [Hetzner Object Storage](https://docs.hetzner.com/storage/object-storage/) using the **`aminueza/minio`** provider (the `hcloud` provider cannot manage buckets today).
+
+In **`terraform/environments/dev`**, set **`object_storage_enabled = true`** and add **S3 access/secret keys** from the Hetzner Cloud Console. The default bucket name is **`{cluster_name}-cnpg-backups`** (override with `object_storage_bucket_name`).
+
+The bucket resource uses **`prevent_destroy`** so destroying the rest of the infrastructure does **not** wipe backups. See **`terraform/environments/dev/README.md`** for details and how to retire a bucket intentionally.
+
 ## Further reading
 
 - [`terraform/environments/dev/README.md`](../terraform/environments/dev/README.md) — dev topology, routing, firewalls.

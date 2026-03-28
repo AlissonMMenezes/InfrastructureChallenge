@@ -11,7 +11,7 @@ Technical runbooks and how-tos live under **`docs/`**:
 - **[Documentation index](docs/README.md)** — table of contents  
 - **[Getting started](docs/getting-started.md)** — Terraform → Ansible → Flux order  
 - **[Terraform](docs/terraform.md)** — provision VMs and networking  
-- **[Ansible](docs/ansible.md)** — bootstrap Kubernetes and optional Flux  
+- **[Ansible](docs/ansible.md)** — bootstrap Kubernetes and Flux  
 - **[GitOps (Flux)](docs/gitops.md)** — sync model, **operators vs infrastructure vs applications**  
 - **[Architecture](docs/architecture.md)** — network topology and cluster design  
 - **[Repository structure](docs/repository-structure.md)** — what each top-level folder is for  

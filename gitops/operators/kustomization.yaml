@@ -4,3 +4,5 @@ resources:
   - cert-manager/
   - cloudnative-pg/
   - kube-prometheus-stack/
+  - openbao/
+  - external-secrets/

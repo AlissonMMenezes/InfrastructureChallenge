@@ -1,0 +1,25 @@
+# Host is overridden per environment (JSON6902 patch). TLS secret is issued by cert-manager.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: demo-api
+  namespace: app-dev
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - demo-app.example.invalid
+      secretName: demo-api-tls
+  rules:
+    - host: demo-app.example.invalid
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: demo-api
+                port:
+                  number: 80

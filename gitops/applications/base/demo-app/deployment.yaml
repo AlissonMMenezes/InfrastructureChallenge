@@ -13,25 +13,12 @@ spec:
       labels:
         app: demo-api
     spec:
+      serviceAccountName: demo-api
       containers:
         - name: demo-api
           image: ghcr.io/alissonmachado/demo-app:0.1.0 # {"$imagepolicy": "flux-system:demo-app"}
+          envFrom:
+            - secretRef:
+                name: demo-app-postgres
           ports:
             - containerPort: 8080
-          env:
-            - name: DB_HOST
-              value: app-db-rw.data-dev.svc.cluster.local
-            - name: DB_PORT
-              value: "5432"
-            - name: DB_NAME
-              value: app
-            - name: DB_USER
-              valueFrom:
-                secretKeyRef:
-                  name: app-db-app
-                  key: username
-            - name: DB_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: app-db-app
-                  key: password

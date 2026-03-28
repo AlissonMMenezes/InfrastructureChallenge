@@ -1,4 +1,19 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-resources:      
+resources:
   - ../../../base/demo-app/
+patches:
+  - target:
+      group: networking.k8s.io
+      version: v1
+      kind: Ingress
+      name: demo-api
+      namespace: app-dev
+    path: ingress-dev-patch.yaml
+  - target:
+      group: postgresql.cnpg.io
+      version: v1
+      kind: Cluster
+      name: demo-app-db
+      namespace: app-dev
+    path: postgres-instances-patch.yaml

@@ -1,0 +1,6 @@
+- op: replace
+  path: /spec/rules/0/host
+  value: demo-app.alissonmachado.com.br
+- op: replace
+  path: /spec/tls/0/hosts/0
+  value: demo-app.alissonmachado.com.br

@@ -1,10 +1,13 @@
+# Restrict only demo-api pods; CNPG pods in the same namespace must not match this selector.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: default-deny
+  name: default-deny-demo-api
   namespace: app-dev
 spec:
-  podSelector: {}
+  podSelector:
+    matchLabels:
+      app: demo-api
   policyTypes:
     - Ingress
     - Egress

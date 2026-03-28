@@ -55,7 +55,22 @@ You can pass it through a `.tfvars` file.
 
 ```hcl
 ssh_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAI... your@email"
+
+# Optional: Hetzner Object Storage bucket for backups (CloudNativePG S3, etc.)
+# object_storage_enabled        = true
+# object_storage_access_key     = "YOUR_S3_ACCESS_KEY"
+# object_storage_secret_key     = "YOUR_S3_SECRET_KEY"
+# object_storage_region         = "fsn1"   # match a region where Object Storage is available
+# object_storage_bucket_name    = ""       # empty = "{cluster_name}-cnpg-backups"
 ```
+
+See [Hetzner: generating S3 keys](https://docs.hetzner.com/storage/object-storage/getting-started/generating-s3-keys) and [bucket via Terraform (MinIO provider)](https://docs.hetzner.com/storage/object-storage/getting-started/creating-a-bucket-minio-terraform/).
+
+### Object storage module (`modules/object-storage`)
+
+- **Not** created with the `hcloud` provider (Hetzner’s public API does not expose bucket CRUD). This repo uses the **`aminueza/minio`** provider against Hetzner’s S3 endpoint.
+- Set **`object_storage_enabled = true`** and provide **access/secret keys** when you want Terraform to create the bucket alongside the cluster.
+- The bucket has **`lifecycle { prevent_destroy = true }`** so a full `terraform destroy` of the cluster **does not delete** backup objects. To remove the bucket intentionally, temporarily remove that lifecycle block in `modules/object-storage/main.tf` (or `terraform state rm 'module.object_storage[0].minio_s3_bucket.backups'` and delete the bucket in the console), then apply/destroy as needed.
 
 ## Run
 
@@ -73,6 +88,9 @@ terraform apply tf.plan
 - `kube_api_load_balancer_ipv4` — set when `expose_kubernetes_api_via_load_balancer = true`
 - `workers_load_balancer_ipv4` — set when `lb_services` is non-empty
 - `cluster_nat_egress` — NAT gateway private IP and hints
+- `object_storage_bucket_name` — S3 bucket name when `object_storage_enabled` is true
+- `object_storage_s3_endpoint` — S3 hostname for backup clients (e.g. CNPG `barmanObjectStore`)
+- `object_storage_region` — region string for S3 client configuration
 
 ### Upgrading from the old single workers LB (API on `lb_services`)
 

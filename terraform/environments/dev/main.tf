@@ -1,9 +1,20 @@
+locals {
+  object_storage_bucket_name = trimspace(var.object_storage_bucket_name) != "" ? trimspace(var.object_storage_bucket_name) : "${var.cluster_name}-cnpg-backups"
+}
 
+check "object_storage_credentials_when_enabled" {
+  assert {
+    condition = !var.object_storage_enabled || (
+      length(var.object_storage_access_key) > 0 && length(var.object_storage_secret_key) > 0
+    )
+    error_message = "When object_storage_enabled is true, set object_storage_access_key and object_storage_secret_key (Hetzner Cloud Console → Object Storage → S3 credentials)."
+  }
+}
 
 module "kubernetes" {
   source = "../../modules/kubernetes"
 
-  cluster_name = "dev-test"
+  cluster_name = var.cluster_name
   location     = "fsn1"
   network_zone = "eu-central"
 
@@ -42,6 +53,19 @@ module "kubernetes" {
   }
 }
 
+module "object_storage" {
+  source = "../../modules/object-storage"
+  count  = var.object_storage_enabled ? 1 : 0
+
+  providers = {
+    minio.os = minio.hcloud_os
+  }
+
+  bucket_name    = local.object_storage_bucket_name
+  acl            = "private"
+  object_locking = false
+}
+
 output "nodes" {
   value = {
     jump    = module.kubernetes.jump
@@ -62,4 +86,19 @@ output "workers_load_balancer_ipv4" {
 
 output "cluster_nat_egress" {
   value = module.kubernetes.cluster_nat_egress
+}
+
+output "object_storage_bucket_name" {
+  description = "S3 bucket for backups (null if object_storage_enabled is false)"
+  value       = try(module.object_storage[0].bucket_name, null)
+}
+
+output "object_storage_s3_endpoint" {
+  description = "S3 API hostname for backup clients (same region as cluster location recommended)"
+  value       = var.object_storage_enabled ? (var.object_storage_endpoint != "" ? var.object_storage_endpoint : "${var.object_storage_region}.your-objectstorage.com") : null
+}
+
+output "object_storage_region" {
+  description = "Hetzner object storage region passed to the S3 client"
+  value       = var.object_storage_enabled ? var.object_storage_region : null
 }

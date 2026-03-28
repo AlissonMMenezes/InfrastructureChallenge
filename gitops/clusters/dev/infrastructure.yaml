@@ -8,6 +8,8 @@ spec:
   interval: 5m0s
   path: ./gitops/infrastructure
   prune: true
+  dependsOn:
+    - name: operators
   retryInterval: 2m0s
   sourceRef:
     kind: GitRepository

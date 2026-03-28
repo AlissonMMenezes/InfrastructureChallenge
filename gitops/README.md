@@ -12,6 +12,8 @@ This tree is intended for **Flux v2** (`flux bootstrap github` / `flux install` 
 | **`operators/cert-manager/`** | Jetstack **`HelmRepository`** + **`cert-manager`** **`HelmRelease`** (ACME / Let’s Encrypt TLS). |
 | **`operators/kube-prometheus-stack/`** | **`prometheus-community`** **`HelmRepository`** + **`kube-prometheus-stack`** (Prometheus Operator, **ServiceMonitors**, node-exporter, kube-state-metrics, Grafana). |
 | **`operators/cloudnative-pg/`** | CNPG Helm **`HelmRepository`** + **`HelmRelease`** (operator install). |
+| **`operators/openbao/`** | Official **OpenBao** Helm repo + **`HelmRelease`** in **`openbao-system`** (server + optional **injector**). See [OpenBao K8s docs](https://openbao.org/docs/platform/k8s/helm/). |
+| **`operators/external-secrets/`** | **External Secrets Operator** Helm chart — sync secrets from/to OpenBao (Vault API) and other providers; demo app uses **`PushSecret`** + **`ExternalSecret`**. |
 | **`operators/postgres/`** (legacy / prod samples) | Older layout in some branches; **dev** uses **`operators/cloudnative-pg`**. |
 | **`applications/demo-app/`** | Flux `Kustomization` CRs that sync `manifests/<env>/`. |
 | **`applications/*/manifests/`** | Plain Kubernetes manifests + **kustomize** `Kustomization` (kustomize.config.k8s.io). |
