@@ -59,6 +59,13 @@ spec:
         size: 10Gi
         # Requires a default StorageClass or gitops/storage (local-path-provisioner) applied before this release.
         storageClass: local-path
+      # Default exec probe runs `bao status` → fails while sealed or not yet initialized, so Helm/Flux never
+      # sees the StatefulSet as Ready. Use /v1/sys/health with custom codes (OpenBao API) so “process up” passes;
+      # you still must init/unseal for a working API. See https://openbao.org/api-docs/system/health/
+      readinessProbe:
+        enabled: true
+        path: "/v1/sys/health?standbyok=true&sealedcode=200&uninitcode=200"
+        port: 8200
       resources:
         requests:
           memory: 256Mi
