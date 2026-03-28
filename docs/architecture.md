@@ -61,15 +61,27 @@ flowchart TB
 
 - **Kubernetes**: **kubeadm** (Ansible `bootstrap-k8s.yml`).
 - **CNI**: **Calico** (Tigera operator, applied by Ansible).
-- **Ingress**: **Traefik** via GitOps (**`gitops/infrastructure/traefik/`**, Flux `HelmRelease`).
-- **Stateful data**: **CloudNativePG** operator (GitOps operators) + **`Cluster`** CR (GitOps infrastructure / postgres).
+- **Ingress / TLS**: **Traefik** via GitOps (**`gitops/infrastructure/traefik/`**, Flux `HelmRelease`). **cert-manager** (operators) + **`ClusterIssuer/letsencrypt-prod`** (infrastructure) issue **Let’s Encrypt** certificates for **Ingress** resources (HTTP-01, **`ingressClassName: traefik`**).
+- **Secrets**: **OpenBao** (operators) for KV; **External Secrets Operator** (operators) syncs **PushSecret** / **ExternalSecret** resources (e.g. demo app Postgres credentials). See **`docs/gitops.md`**.
+- **Monitoring**: **kube-prometheus-stack** (operators) — Prometheus, Alertmanager, **Grafana** (optional **Ingress** + HTTPS hostname in Helm values).
+- **Stateful data**: **CloudNativePG** operator (operators) + **`Cluster`** CRs (shared DB under **`gitops/infrastructure/postgres/`**; app-scoped clusters under **`gitops/applications/`**).
 - **Storage**: default **StorageClass** on the cloud (replaceable with CSI).
+
+### Example public hostnames (dev GitOps)
+
+DNS for these names should target the **workers load balancer** (Terraform output). **Port 80** must reach Traefik for ACME HTTP-01.
+
+| Service | Hostname (as in repo) | Notes |
+|--------|------------------------|--------|
+| Demo API | `demo-app.alissonmachado.com.br` | Patched in **`applications/environments/dev/demo-app/`** |
+| OpenBao UI/API | `openbao.alissonmachado.com.br` | **`infrastructure/openbao-ingress/`** — treat as privileged surface |
+| Grafana | `grafana.alissonmachado.com.br` | **`kube-prometheus-stack`** `grafana.ingress` values |
 
 ## GitOps workflow
 
 1. Changes are merged to Git (`main` or your trunk).
 2. **Flux** syncs **`gitops/clusters/<env>/`** (`flux bootstrap github --path=./gitops/clusters/dev`, etc.).
-3. Child **Flux `Kustomization`** resources apply **operators** (Helm), **applications** (kustomize), and **infrastructure** (Traefik, Postgres cluster, …).
+3. Child **Flux `Kustomization`** resources apply **operators** (Helm), **applications** (kustomize), and **infrastructure** (Let’s Encrypt issuer, OpenBao ingress, Traefik, Postgres cluster, …), with **`dependsOn`** ordering on the dev cluster (see **`docs/gitops.md`**).
 4. **Helm-controller** reconciles **`HelmRelease`** objects (operators and Traefik).
 5. State is re-checked on each `spec.interval`.
 

@@ -3,10 +3,9 @@
 ## Secret management
 
 - Do not commit plaintext credentials.
-- Use one of:
-  - External Secrets Operator + cloud secret manager, or
-  - SOPS-encrypted manifests.
-- Demo manifests include placeholder secret references.
+- This repo uses **OpenBao** (Vault-compatible API) with **External Secrets Operator**: **`PushSecret`** copies CloudNativePG bootstrap credentials into OpenBao KV; **`ExternalSecret`** materializes **`Secret`** objects for workloads (see **`docs/gitops.md`**). OpenBao **Kubernetes auth** roles and policies are **not** stored in Git — configure them after install.
+- Alternatives for other workloads: cloud secret managers + ESO, or **SOPS**-encrypted manifests.
+- **Public ingress** to OpenBao or Grafana increases attack surface; restrict by IP, SSO, or disable when not needed.
 
 ## Access control
 
@@ -16,10 +15,11 @@
 
 ## Network policies
 
-- Default deny in application namespaces.
+- Default deny in application namespaces (e.g. **demo-api** in **`app-dev`**).
 - Allow only explicit traffic:
-  - app -> postgres service on `5432`
-  - monitoring namespace -> metrics endpoints
+  - app → Postgres (CNPG) on **5432**
+  - **Traefik** / **monitoring** → app metrics where **ServiceMonitors** scrape
+- **External Secrets** controller reaches OpenBao from the **`external-secrets`** namespace (not through public ingress).
 
 ## Node and runtime hardening
 

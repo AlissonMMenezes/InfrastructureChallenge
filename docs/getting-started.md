@@ -47,4 +47,8 @@ On a control-plane node (after bootstrap):
 kubectl get nodes -o wide
 kubectl get pods -A
 flux get kustomizations -A    # if Flux CLI installed
+kubectl get helmreleases -A
+kubectl get certificate -A    # Let’s Encrypt / cert-manager
 ```
+
+After DNS points at the workers load balancer, **HTTPS** endpoints from GitOps (e.g. demo app, OpenBao, Grafana — see **`docs/gitops.md`**) should respond once **`Certificate`** resources are **Ready**.

@@ -9,6 +9,8 @@ Terraform provisions **Hetzner Cloud** resources: network, NAT/bastion, Kubernet
 
 The composite **`kubernetes`** module (used by `terraform/environments/dev`) defines the full topology: VPC, jump/NAT subnet, cluster subnet, private control-plane and workers, optional API LB, workers LB (e.g. **80→30080**, **443→30443** for ingress NodePorts).
 
+Use the **workers load balancer** IP in **DNS** for public **Ingress** hostnames (Let’s Encrypt HTTP-01 needs **port 80** open to Traefik). See **`terraform/environments/dev/README.md`** and **`docs/gitops.md`**.
+
 ## Prerequisites
 
 - Terraform **≥ 1.6** (see environment README if stricter).

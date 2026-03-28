@@ -29,16 +29,16 @@ The dev entrypoint (`kustomization.yaml`) pulls in, in order:
 |--------|------------------------------|--------------|------|
 | **Operators** | `operators` | `gitops/operators/` | Third-party **operators** installed with **Helm** (Flux `HelmRepository` + `HelmRelease`) |
 | **Applications** | `applications` | `gitops/applications/environments/dev/` | App workloads (Kustomize / plain manifests), e.g. demo app |
-| **Infrastructure** | `infrastructure` | `gitops/infrastructure/` | **Cluster platform** after operators: **Let’s Encrypt** `ClusterIssuer`, Traefik, CloudNativePG **database clusters**, shared infra |
+| **Infrastructure** | `infrastructure` | `gitops/infrastructure/` | **Cluster platform** after operators: **Let’s Encrypt** (`ClusterIssuer/letsencrypt-prod`), **OpenBao** public **Ingress**, **Traefik**, shared **Postgres** `Cluster` (e.g. `dev-postgres`), etc. |
 | **Image automation** | (included in cluster kustomize) | `gitops/clusters/dev/image-automation/` | Flux **ImageRepository** / **ImagePolicy** / **ImageUpdateAutomation** (optional CI → image bumps in Git) |
 
-`dependsOn` in the Flux `Kustomization` CRs enforces order where needed (e.g. infrastructure after operators).
+**Flux `dependsOn` (dev):** **`infrastructure`** waits for **`operators`** (CRDs and Helm installs, including cert-manager and OpenBao, exist before the `ClusterIssuer` and ingress manifests). **`applications`** waits for **`operators`** and **`infrastructure`** so **Let’s Encrypt** issuers and shared ingress plumbing exist before app ingresses and certificates. The root `gitops/clusters/dev/kustomization.yaml` only lists child Flux `Kustomization` files; ordering is defined on those CRs, not by file list order.
 
 ### Operators vs infrastructure (important)
 
 - **Operators** (`gitops/operators/`): install **software operators** into the cluster — Helm charts for **CloudNativePG**, **cert-manager**, **kube-prometheus-stack**, **OpenBao**, **External Secrets Operator**, etc. Each component usually has its own namespace (`cnpg-system`, `cert-manager`, `monitoring`, `openbao-system`, `external-secrets`, …). OpenBao uses the **official Helm chart** (StatefulSet server + optional **injector** webhook); ESO syncs secrets using provider APIs (here, OpenBao via the Vault-compatible provider).
 
-- **Infrastructure** (`gitops/infrastructure/`): **use** those APIs and wire the platform — e.g. **Traefik** ingress HelmRelease, **PostgreSQL `Cluster`** manifests (CNPG), Traefik/Postgres namespaces and supporting objects. This is “what we run **on top of** the operators,” not the operator Helm charts themselves.
+- **Infrastructure** (`gitops/infrastructure/`): **use** those APIs and wire the platform — e.g. **cert-manager** `ClusterIssuer` (Let’s Encrypt HTTP-01 via **Traefik**), **Ingress** for public **OpenBao** (`openbao.alissonmachado.com.br`), **Traefik** `HelmRelease`, **PostgreSQL `Cluster`** manifests (CNPG, e.g. under `postgres/`), and related namespaces. This is “what we run **on top of** the operators,” not the operator Helm charts themselves.
 
 - **Applications** (`gitops/applications/`): **tenant/workload** manifests (demo API, ServiceMonitors, NetworkPolicies), often layered as **base** + **environment** overlays.
 
@@ -80,6 +80,18 @@ On OpenBao, enable the **`secret`** KV v2 mount (if not already), **Kubernetes a
 
 The OpenBao **injector** is optional for this app; the demo API no longer uses sidecar injection for DB credentials.
 
+## HTTPS (Let’s Encrypt) and public hostnames
+
+- **`ClusterIssuer/letsencrypt-prod`** lives under **`gitops/infrastructure/cert-manager-issuers/`** and uses **HTTP-01** with **`ingressClassName: traefik`**. Edit **`spec.acme.email`** in that manifest for a valid contact address for Let’s Encrypt. The **workers load balancer** must forward **TCP 80** (and **443** for clients) to Traefik NodePorts (see Terraform module defaults).
+- **cert-manager** creates TLS Secrets referenced by **Ingress** `spec.tls` when you set the annotation **`cert-manager.io/cluster-issuer: letsencrypt-prod`**.
+- **Demo app:** **`Ingress/demo-api`** in **`app-dev`** — host patched in **`gitops/applications/environments/dev/demo-app/`** (e.g. `demo-app.alissonmachado.com.br`), TLS secret **`demo-api-tls`**.
+- **OpenBao:** **`Ingress/openbao`** in **`openbao-system`** — **`gitops/infrastructure/openbao-ingress/`**, host **`openbao.alissonmachado.com.br`**, TLS **`openbao-tls`**. In-cluster workloads should keep using **`http://openbao.openbao-system.svc.cluster.local:8200`**; exposing the UI/API on the Internet is high risk — restrict access in production.
+- **Grafana:** **`kube-prometheus-stack`** Helm values enable **`grafana.ingress`** (class **traefik**, host **`grafana.alissonmachado.com.br`**, TLS **`grafana-tls`**, **`grafana.ini.server.root_url`** set for correct redirects). Namespace **`monitoring`**.
+
+Point **DNS A/AAAA** records for those hostnames at the **workers load balancer** address from Terraform. Let’s Encrypt validation requires **HTTP on port 80** to succeed from the public Internet.
+
 ## CI and image automation
+
+The workflow **`.github/workflows/demo-app-image.yml`** pushes to **GHCR** using the GitHub owner name **lowercased** in the image path (`ghcr.io/<owner-lower>/demo-app`), because OCI repository names must be lowercase. Align **`ImageRepository`** / **`deployment`** image references with that path.
 
 If **`gitops/clusters/dev/image-automation/`** is enabled, Flux can watch container registries (e.g. GHCR) and commit image tag updates back to Git. Ensure the Git credentials Flux uses allow **push** if you use **ImageUpdateAutomation** (see **`ansible/README.md`** Flux variables).

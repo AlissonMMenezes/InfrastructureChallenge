@@ -20,13 +20,24 @@ For provisioning and GitOps bootstrap order, see **[Getting started](getting-sta
 
 ## Monitoring
 
-- CloudNativePG emits metrics; service monitors are enabled.
+- **kube-prometheus-stack** provides Prometheus, Alertmanager, and **Grafana**. When **Grafana ingress** is enabled in the Helm values, the UI is served at **`https://grafana.alissonmachado.com.br`** (TLS via cert-manager). Admin password: Kubernetes **Secret** in **`monitoring`** created by the chart (commonly named like **`kube-prometheus-stack-grafana`** — confirm with `kubectl get secrets -n monitoring | grep grafana` and read key **`admin-password`**).
+- CloudNativePG emits metrics; **ServiceMonitors** are enabled where configured.
 - Prometheus alerts cover:
   - replication lag,
   - backup failures,
   - pod restarts,
   - PVC saturation,
   - failover events.
+
+## TLS certificates (Let’s Encrypt)
+
+- **cert-manager** backs **`Certificate`** objects created from **Ingress** TLS + **`cert-manager.io/cluster-issuer: letsencrypt-prod`**.
+- Check status: `kubectl get certificate -A` and `kubectl describe certificate -n <ns> <name>`.
+- If HTTP-01 fails, verify **DNS** points to the workers LB, **port 80** is reachable from the Internet to Traefik, and **`ClusterIssuer/letsencrypt-prod`** is **Ready**.
+
+## OpenBao (public ingress)
+
+- If **`openbao.alissonmachado.com.br`** ingress is enabled, prefer **strong authentication**, **network restrictions**, and **auditing**; in-cluster integrations should continue using the **cluster DNS** service URL on port **8200**.
 
 ## Upgrades
 

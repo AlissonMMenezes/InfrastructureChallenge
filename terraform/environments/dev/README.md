@@ -12,6 +12,8 @@ This environment provisions infrastructure through `hetzner-cluster.tf`, which u
 
 **Hetzner load balancers** only handle **inbound** traffic. By default the module creates a **workers** LB (see `lb_services`: **80→30080** and **443→30443**, typical ingress NodePorts). Exposing the **Kubernetes API** on a public LB is **optional** (`expose_kubernetes_api_via_load_balancer`): a second LB targets the **control-plane** on **6443** (one target pool per LB, so API and workers cannot share one LB). They do **not** provide outbound NAT.
 
+**DNS for GitOps ingress hostnames:** Point public names used in this repo (e.g. **`demo-app`**, **OpenBao**, **Grafana** — see **`docs/gitops.md`**) at the **`workers_load_balancer_ipv4`** (or IPv6 if used) from **`terraform output`**. **TCP 80** must reach **Traefik** on workers so **Let’s Encrypt HTTP-01** can succeed; **443** serves HTTPS to clients.
+
 Egress for cluster nodes (Hetzner L3 networks):
 
 1. **`hcloud_network_route`** `0.0.0.0/0` → **jump private IP** (SDN sends Internet traffic to the NAT host).

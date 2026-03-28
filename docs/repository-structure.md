@@ -8,7 +8,7 @@ Top-level directories:
 | **`ansible/`** | Idempotent roles and playbooks: host baseline, security, **kubeadm** Kubernetes, optional **Flux** install. |
 | **`gitops/`** | Flux manifests: **`clusters/<env>/`** entrypoints, **`operators/`**, **`infrastructure/`**, **`applications/`**. |
 | **`demo-app/`** | Sample containerised API (build via CI / local Docker; image referenced from GitOps). |
-| **`.github/workflows/`** | CI (e.g. build/push container images). |
+| **`.github/workflows/`** | CI (e.g. **`demo-app-image.yml`** — build/push to **GHCR** with **lowercase** image path). |
 | **`docs/`** | Architecture, runbooks, security, and how-to guides (this folder). |
 
 Deeper GitOps layout: [`../gitops/README.md`](../gitops/README.md).

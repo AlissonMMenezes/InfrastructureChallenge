@@ -29,7 +29,7 @@ Also: [`ansible/README.md`](ansible/README.md), [`gitops/README.md`](gitops/READ
 
 - Least-privilege RBAC for workloads and service accounts.
 - Namespace isolation and default-deny-oriented network policies where defined in GitOps.
-- Secrets referenced via Kubernetes secrets / external-secret patterns (SOPS/ESO-ready).
+- Secrets: **OpenBao** + **External Secrets Operator** for the demo app (PushSecret / ExternalSecret); other workloads can use SOPS or cloud backends via ESO.
 - Hardened node baseline via Ansible (SSH, firewall, fail2ban).
 
 Details: [`docs/security.md`](docs/security.md).
@@ -74,8 +74,8 @@ Details: [`docs/security.md`](docs/security.md).
   - [X] GitOps Change Management
 
 #### 28.03.2026 - Deploy Applications
-- [ ] Deploy Applications
-  - [ ] Deploy demo-app on the infrastructure
+- [X] Deploy Applications
+  - [X] Deploy demo-app via GitOps (**`applications/environments/dev`**) with CNPG, ESO/OpenBao, **HTTPS** ingress (Let’s Encrypt)
 
 #### 28.03.2026 - Update Documentation
 - [X] Update Documentation
@@ -173,4 +173,6 @@ Each customer could have their own namespaces.
 
 Docs about [OpenBao Namespaces](https://openbao.org/docs/concepts/namespaces/)
 
-The secrets can be dynamically synced into the applications using the [External Secrets Operator](https://external-secrets.io/latest/)
+The secrets can be dynamically synced into the applications using the [External Secrets Operator](https://external-secrets.io/latest/) (used in this repo with **OpenBao** for the demo app — see **`docs/gitops.md`**).
+
+**Container registry:** GitHub Actions builds push to **GHCR** with a **lowercase** owner segment in the image reference (OCI requirement); keep **`ImageRepository`** and **`Deployment`** image URLs aligned (see **`.github/workflows/demo-app-image.yml`**).

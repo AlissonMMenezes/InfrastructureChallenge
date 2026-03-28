@@ -209,6 +209,8 @@ You can set **`fluxcd_github_token`** via **Ansible Vault** instead of **`GITHUB
 
 When GitHub bootstrap is **enabled**, **`flux install`** is **not** run (**`fluxcd_cluster_install`** is ignored).
 
+After bootstrap, this repository’s **`gitops/clusters/dev`** defines child **`Kustomization`** resources with **`dependsOn`** so **operators** install before **infrastructure** (cert-manager CRDs, OpenBao service, etc.) and **applications** run after **infrastructure** (Let’s Encrypt issuer, shared ingress). Details: **`docs/gitops.md`**.
+
 ---
 
 ## Flux CD variables (reference)

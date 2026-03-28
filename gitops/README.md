@@ -8,16 +8,16 @@ This tree is intended for **Flux v2** (`flux bootstrap github` / `flux install` 
 |------|---------|
 | **`clusters/<env>/`** | Cluster bootstrap path: kustomize bundle of Flux `HelmRepository`, `HelmRelease`, and `Kustomization` objects. Point **`flux bootstrap github --path`** here (e.g. `./gitops/clusters/dev`). |
 | **`clusters/<env>/image-automation/`** | Flux image automation objects (`ImageRepository`, `ImagePolicy`, `ImageUpdateAutomation`) for automatic image tag updates in Git. |
-| **`infrastructure/`** | Shared cluster infrastructure: e.g. **Traefik** (`HelmRepository` + `HelmRelease`), CloudNative-PG **`Cluster`**, etc. Synced by **`clusters/dev/infrastructure.yaml`** (after **`operators`**). |
+| **`infrastructure/`** | Shared platform: **Let’s Encrypt** `ClusterIssuer`, **OpenBao** `Ingress`, **Traefik** `HelmRelease`, CloudNativePG **`Cluster`** (e.g. **`postgres/`**), namespaces. Synced by **`clusters/dev/infrastructure.yaml`** with **`dependsOn: operators`**. |
 | **`operators/cert-manager/`** | Jetstack **`HelmRepository`** + **`cert-manager`** **`HelmRelease`** (ACME / Let’s Encrypt TLS). |
-| **`operators/kube-prometheus-stack/`** | **`prometheus-community`** **`HelmRepository`** + **`kube-prometheus-stack`** (Prometheus Operator, **ServiceMonitors**, node-exporter, kube-state-metrics, Grafana). |
+| **`operators/kube-prometheus-stack/`** | **`prometheus-community`** **`HelmRepository`** + **`kube-prometheus-stack`** (Prometheus Operator, **ServiceMonitors**, node-exporter, kube-state-metrics, **Grafana** — optional **Ingress** + TLS via chart values, e.g. **`grafana.alissonmachado.com.br`**). |
 | **`operators/cloudnative-pg/`** | CNPG Helm **`HelmRepository`** + **`HelmRelease`** (operator install). |
 | **`operators/openbao/`** | Official **OpenBao** Helm repo + **`HelmRelease`** in **`openbao-system`** (server + optional **injector**). See [OpenBao K8s docs](https://openbao.org/docs/platform/k8s/helm/). |
 | **`operators/external-secrets/`** | **External Secrets Operator** Helm chart — sync secrets from/to OpenBao (Vault API) and other providers; demo app uses **`PushSecret`** + **`ExternalSecret`**. |
 | **`operators/postgres/`** (legacy / prod samples) | Older layout in some branches; **dev** uses **`operators/cloudnative-pg`**. |
-| **`applications/demo-app/`** | Flux `Kustomization` CRs that sync `manifests/<env>/`. |
-| **`applications/*/manifests/`** | Plain Kubernetes manifests + **kustomize** `Kustomization` (kustomize.config.k8s.io). |
-| **`operators/*/manifests/`** | Same for operators (CNPG `Cluster`, backups, monitors). |
+| **`applications/base/`**, **`applications/environments/<env>/`** | **Kustomize** bases and overlays (e.g. demo app: **`base/demo-app/`**, dev patch **`environments/dev/demo-app/`**). Flux **`applications`** `Kustomization` points at **`environments/dev/`** for the dev cluster. |
+| **`infrastructure/cert-manager-issuers/`** | **`ClusterIssuer`** for **Let’s Encrypt** (HTTP-01, Traefik ingress class). |
+| **`infrastructure/openbao-ingress/`** | **`Ingress`** exposing OpenBao on a public hostname (TLS via cert-manager). |
 
 ## Bootstrap assumptions
 
@@ -26,6 +26,8 @@ This tree is intended for **Flux v2** (`flux bootstrap github` / `flux install` 
 2. **Paths** are relative to the **Git repository root** (e.g. `./gitops/...`). If your monorepo root differs, adjust `spec.path` on each Flux `Kustomization`.
 
 3. **One cluster ↔ one env folder**: do not apply both `clusters/dev` and `clusters/prod` to the same cluster; they each define the same `HelmRepository`/`HelmRelease` names.
+
+4. **Dev child `Kustomization` order:** **`infrastructure`** → `dependsOn: [operators]`. **`applications`** → `dependsOn: [operators, infrastructure]`. See **`docs/gitops.md`** for HTTPS hostnames and secrets flows.
 
 ## Install flow (summary)
 
