@@ -1,0 +1,28 @@
+# Barman Cloud CNPG-I plugin — backup/restore integration for CloudNativePG (ObjectStore API).
+# Requires cert-manager and CloudNativePG ≥ 1.26 in the same namespace as the operator (cnpg-system).
+# https://cloudnative-pg.io/plugin-barman-cloud/docs/installation/
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: plugin-barman-cloud
+  namespace: cnpg-system
+spec:
+  interval: 10m
+  dependsOn:
+    - name: cert-manager
+      namespace: cert-manager
+    - name: cloudnative-pg
+      namespace: cnpg-system
+  chart:
+    spec:
+      chart: plugin-barman-cloud
+      version: "0.5.0"
+      sourceRef:
+        kind: HelmRepository
+        name: cloudnative-pg
+        namespace: default
+  install:
+    createNamespace: false
+  upgrade:
+    remediation:
+      retries: 3

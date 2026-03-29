@@ -19,15 +19,17 @@ Boot: **`CREATE TABLE IF NOT EXISTS items`**.
 
 ## Postgres
 
-1. CNPG **`Cluster/demo-app-db`** in **`app-dev`** — Postgres version is **`spec.imageName`** (e.g. `ghcr.io/cloudnative-pg/postgresql:<tag>`); change the tag to select the operand image.  
-2. **`Secret/demo-app-db-app`**, key **`uri`**.  
-3. **`Deployment`** sets **`DATABASE_URL`** from that secret.  
-4. App uses **`DATABASE_URL`** or **`DB_*`** + **`DB_SSLMODE`** for local runs. **`LISTEN_ADDR`** default **`:8080`**.  
+1. CNPG **`Cluster/demo-app-db`** in **`app-dev`** — operand image **`spec.imageName`** (pinned in **`gitops/applications/environments/dev/demo-app/patches/postgres-cluster-spec.yaml`**).  
+2. **Barman Cloud (CNPG-I):** **`ObjectStore/demo-app-db-store`** (`barmancloud.cnpg.io`) in **`app-dev`** holds S3 path (**`s3://dev-test-cnpg-backups/demo-app-db/`**), credentials, WAL/data options. **`Cluster.spec.plugins`** references **`barman-cloud.cloudnative-pg.io`** and **`parameters.barmanObjectName: demo-app-db-store`**. Base + patches: **`gitops/applications/base/postgres-cluster/`**, **`gitops/applications/environments/dev/demo-app/patches/`**.  
+3. **`ScheduledBackup/demo-app-db-daily`** — **`method: plugin`**, **`pluginConfiguration.name: barman-cloud.cloudnative-pg.io`**. Requires **`HelmRelease/plugin-barman-cloud`** in **`cnpg-system`**.  
+4. **`Secret/demo-app-db-app`**, key **`uri`**.  
+5. **`Deployment`** sets **`DATABASE_URL`** from that secret.  
+6. App uses **`DATABASE_URL`** or **`DB_*`** + **`DB_SSLMODE`** for local runs. **`LISTEN_ADDR`** default **`:8080`**.  
 
-Upgrade path for Postgres: **[postgres-upgrade-strategy](postgres-upgrade-strategy.md)**.
+Upgrade path for Postgres: **[postgres-upgrade-strategy](postgres-upgrade-strategy.md)**. Backup / restore model: **[postgres-backup-strategy](postgres-backup-strategy.md)**, **[operations](operations.md#backups-cnpg)**.
 
 Until the secret exists, pods may stay **CreateContainerConfigError**. Network: **`network-policy-demo-api-allow.yaml`**.
 
 **Local:** `go run ./cmd/demo-api` from `demo-app/` without `DATABASE_URL` (defaults to localhost Postgres).
 
-**Backups:** prefix **`demo-app-db/`** — **[cnpg-backup-secrets](cnpg-backup-secrets.md)**.
+**Backups:** S3 prefix **`demo-app-db/`** via **`ObjectStore`** + plugin; Secret **`cnpg-s3-credentials`** in **`app-dev`** — **[cnpg-backup-secrets](cnpg-backup-secrets.md)**.

@@ -9,4 +9,4 @@
 | `.github/workflows/` | e.g. demo-app image build |
 | `docs/` | This documentation set |
 
-GitOps detail: **`gitops/README.md`**.
+GitOps detail: **[gitops.md](gitops.md)**.

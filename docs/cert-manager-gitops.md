@@ -1,6 +1,6 @@
-# cert-manager (Flux)
+# cert-manager (GitOps)
 
-Jetstack Helm chart for **Certificates** / ACME.
+Jetstack Helm chart for **Certificates** / ACME (**`gitops/operators/cert-manager/`**).
 
 **ClusterIssuer** for production Let’s Encrypt lives in **`gitops/infrastructure/cert-manager-issuers/`** (HTTP-01, **traefik** class). Ingresses: **`cert-manager.io/cluster-issuer: letsencrypt-prod`**.
 

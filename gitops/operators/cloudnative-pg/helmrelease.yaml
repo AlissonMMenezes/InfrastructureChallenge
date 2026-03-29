@@ -13,14 +13,5 @@ spec:
         kind: HelmRepository
         name: cloudnative-pg
         namespace: default
-  values:
-    # Operator ConfigMap: https://cloudnative-pg.io/documentation/current/operator_conf/
-    config:
-      data:
-        # Default operand image when a Cluster omits spec.imageName; keep in sync with upgrades.
-        POSTGRES_IMAGE_NAME: ghcr.io/cloudnative-pg/postgresql:18.3-system-trixie
-        # Spread rollouts when the operator reconciles many clusters/instances (optional tuning).
-        CLUSTERS_ROLLOUT_DELAY: "0"
-        INSTANCES_ROLLOUT_DELAY: "0"
   install:
     createNamespace: true

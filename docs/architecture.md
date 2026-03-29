@@ -26,7 +26,7 @@ flowchart LR
 
 - **Bootstrap:** Ansible **kubeadm** + **Calico** (Tigera).
 - **Ingress / TLS:** **Traefik** + **cert-manager** + `ClusterIssuer` (Let’s Encrypt HTTP-01).
-- **Data:** **CloudNativePG**; shared cluster under **`gitops/infrastructure/postgres/`**, app cluster under **`gitops/applications/.../demo-app/`**.
+- **Data:** **CloudNativePG**; shared cluster under **`gitops/infrastructure/postgres/`** (classic **`barmanObjectStore`** backups). App database **`demo-app-db`** uses the **Barman Cloud CNPG-I plugin** (**`ObjectStore`** + **`Cluster.spec.plugins`**) with **`HelmRelease/plugin-barman-cloud`** — see **[postgres-backup-strategy](postgres-backup-strategy.md)**.
 - **Secrets:** CNPG **`Secret`** for apps; **OpenBao** + **ESO** where configured (**`openbao-kubernetes-auth/`**).
 - **Metrics:** **kube-prometheus-stack**.
 

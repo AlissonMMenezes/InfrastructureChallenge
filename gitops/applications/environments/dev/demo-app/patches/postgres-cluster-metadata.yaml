@@ -1,0 +1,10 @@
+# JSON6902: renames base Cluster (app-postgres/app) to demo-app-db / app-dev.
+- op: replace
+  path: /metadata/name
+  value: demo-app-db
+- op: replace
+  path: /metadata/namespace
+  value: app-dev
+- op: replace
+  path: /metadata/labels/app.kubernetes.io~1name
+  value: demo-app-db

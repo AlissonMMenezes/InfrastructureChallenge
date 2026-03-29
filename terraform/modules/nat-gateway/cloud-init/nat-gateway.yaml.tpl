@@ -1,7 +1,7 @@
 #cloud-config
 # SNAT for private clients: MASQUERADE traffic sourced from nat_source_cidr via WAN (-o default route).
 # Rendered by Terraform (templatefile) and passed as hcloud_server.user_data only — no Ansible duplication.
-# Hetzner runs this at server create/rebuild; see cloud-init/README.md.
+# Hetzner runs this at server create/rebuild; see docs/terraform-nat-gateway.md (Cloud-init section).
 package_update: true
 packages:
   - iptables

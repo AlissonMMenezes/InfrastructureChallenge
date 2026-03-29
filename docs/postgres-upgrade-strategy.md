@@ -3,9 +3,9 @@
 | Cluster | Namespace | Manifest |
 |---------|-----------|----------|
 | `dev-postgres` | `postgres` | `gitops/infrastructure/postgres/cluster.yaml` |
-| `demo-app-db` | `app-dev` | `gitops/applications/base/demo-app/postgres-cluster.yaml` |
+| `demo-app-db` | `app-dev` | Base: `postgres-cluster/` (`cluster.yaml`, `objectstore.yaml`); dev: `environments/dev/demo-app/patches/` (`postgres-cluster-metadata.yaml`, `postgres-objectstore-metadata.yaml`, `postgres-cluster-spec.yaml`, `ingress.yaml`) |
 
-Operator: `gitops/operators/cloudnative-pg/helmrelease.yaml`. **Authoritative:** [CNPG upgrading](https://cloudnative-pg.io/docs/1.28/installation_upgrade#upgrades).
+Operators: **`HelmRelease/cloudnative-pg`**, **`HelmRelease/plugin-barman-cloud`** (`gitops/operators/`). **Backup models:** two paths in-repo — see **[postgres-backup-strategy](postgres-backup-strategy.md)**. **Authoritative upgrade doc:** [CNPG upgrading](https://cloudnative-pg.io/docs/1.28/installation_upgrade#upgrades).
 
 ## Choosing / changing the Postgres version
 
@@ -42,4 +42,4 @@ Not a single-field change. Needs tested backup, restore drill, and CNPG doc proc
 **Before:** backup OK, `cnpg-s3-credentials` if using S3, maintenance window if needed.  
 **After:** `kubectl get cluster -A`, pods Running, app smoke tests.
 
-**Rollback:** revert HelmRelease / `imageName` / params; for corruption use new `Cluster` from backup (**[operations — restore](operations.md#restore-outline)**).
+**Rollback:** revert HelmRelease / `imageName` / params; for corruption use new `Cluster` from backup (**[operations — Restore](operations.md#restore)**).

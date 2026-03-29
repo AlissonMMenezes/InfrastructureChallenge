@@ -1,0 +1,22 @@
+# Object store for plugin-barman-cloud (ScheduledBackup method: plugin, WAL archive). Same namespace as Cluster.
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: app-postgres-store
+  namespace: app
+spec:
+  retentionPolicy: "30d"
+  configuration:
+    destinationPath: s3://dev-test-cnpg-backups/app-postgres/
+    endpointURL: https://fsn1.your-objectstorage.com
+    s3Credentials:
+      accessKeyId:
+        name: cnpg-s3-credentials
+        key: ACCESS_KEY_ID
+      secretAccessKey:
+        name: cnpg-s3-credentials
+        key: ACCESS_SECRET_KEY
+    wal:
+      compression: gzip
+    data:
+      compression: gzip

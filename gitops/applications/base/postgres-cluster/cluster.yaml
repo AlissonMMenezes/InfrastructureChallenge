@@ -1,0 +1,35 @@
+# Reusable CloudNativePG Cluster base. Backups/WAL via Barman Cloud CNPG-I plugin + ObjectStore (same namespace).
+# Include: resources: [ ../postgres-cluster/ ]
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: app-postgres
+  namespace: app
+  labels:
+    app.kubernetes.io/name: app-postgres
+spec:
+  instances: 1
+  primaryUpdateStrategy: unsupervised
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.1-system-trixie
+
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: app-postgres-store
+
+  monitoring:
+    enablePodMonitor: true
+
+  storage:
+    size: 5Gi
+
+  bootstrap:
+    initdb:
+      database: app
+      owner: app
+
+  postgresql:
+    parameters:
+      max_connections: "100"
+      shared_buffers: "128MB"

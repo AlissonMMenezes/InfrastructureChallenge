@@ -31,7 +31,7 @@ fluxcd_verify: true
 
 # --- GitHub bootstrap (flux bootstrap github) ---
 # When true, runs flux bootstrap github instead of flux install (deploys Flux + GitRepository/Kustomization sync).
-# Requires GITHUB_TOKEN on the Ansible controller (recommended) or fluxcd_github_token (Vault / -e). See README.
+# Requires GITHUB_TOKEN on the Ansible controller (recommended) or fluxcd_github_token (Vault / -e). See docs/ansible.md in the repo.
 fluxcd_github_bootstrap: false
 
 fluxcd_github_owner: ""

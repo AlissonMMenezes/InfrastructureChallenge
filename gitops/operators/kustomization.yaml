@@ -3,6 +3,7 @@ kind: Kustomization
 resources:
   - cert-manager/
   - cloudnative-pg/
+  - plugin-barman-cloud/
   - kube-prometheus-stack/
   - openbao/
   - external-secrets/
