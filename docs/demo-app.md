@@ -1,35 +1,133 @@
 # Demo app (`demo-api`)
 
-**Code:** `demo-app/` — Go, **`cmd/demo-api`**, **`internal/{config,db,httpserver}`** (embedded templates + OpenAPI). **Image:** `.github/workflows/demo-app-image.yml` → **GHCR** `ghcr.io/<owner-lower>/demo-app`.
+The **demo-api** workload runs from `demo-app/` and connects to **PostgreSQL provisioned by CloudNativePG (CNPG)**. **You do not put database passwords in Git** — CNPG creates a `**Secret`** with a connection URI; the `**Deployment**` exposes it as `**DATABASE_URL**`.
 
-**GitOps:** base `gitops/applications/base/demo-app/`; dev overlay is selected in **`gitops/applications/environments/dev/kustomization.yaml`**. **`major-upgrade-app/`** uses namespace **`major-upgrade-app`**, Postgres **18.3** operand (`spec.imageName`), S3 prefix **`major-upgrade-app/`**; **`demo-app/`** uses **`app-dev`** and prefix **`demo-app-db/`**. Flux **ImageRepository/ImagePolicy/ImageUpdateAutomation** for this repo stay in **`flux-system`** (**`major-upgrade-flux-image-automation.yaml`** when the major-upgrade overlay is active).
+
+| Overlay                 | Role                                                                                                                                 | Namespace           | S3 prefix (Barman)                             |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------- | ---------------------------------------------- |
+| `**demo-app**`          | Normal CNPG install: `bootstrap.initdb`, Barman Cloud plugin backups.                                                                | `app-dev`           | `demo-app-db/`                                 |
+| `**major-upgrade-app**` | Major upgrade example: `bootstrap.recovery` and extra `ObjectStore` — **[postgres-upgrade-strategy](postgres-upgrade-strategy.md)**. | `major-upgrade-app` | `major-upgrade-app/` (and PG17 archive prefix) |
+
+
+## GitOps layout (demo-app)
+
+The dev overlay composes the base app + CNPG resources and patches names, namespace, and ingress:
+
+```yaml
+# gitops/applications/environments/dev/demo-app/kustomization.yaml (excerpt)
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../../base/demo-app/
+  - cnpg-scheduledbackup.yaml
+  - image-automation.yaml
+patches:
+  - path: patches/ingress.yaml
+    target:
+      group: networking.k8s.io
+      kind: Ingress
+      name: demo-api
+      namespace: app-dev
+  - path: patches/postgres-cluster-metadata.yaml
+    target:
+      group: postgresql.cnpg.io
+      kind: Cluster
+      name: app-postgres
+      namespace: app
+```
+
+The `**postgres-cluster-metadata**` patch renames the base cluster to `**demo-app-db**` in `**app-dev**`:
+
+```yaml
+# gitops/applications/environments/dev/demo-app/patches/postgres-cluster-metadata.yaml
+- op: replace
+  path: /metadata/name
+  value: demo-app-db
+- op: replace
+  path: /metadata/namespace
+  value: app-dev
+```
+
+## Connecting to Postgres (CNPG + Secret)
+
+1. **CNPG `Cluster`** defines the database and owner. With `bootstrap.initdb`, the operator creates the database and user, then creates a `**Secret**` named `**{clusterName}-{owner}**` (for example cluster `**demo-app-db**` and owner `**app**` → `**demo-app-db-app**`) with keys such as `**uri**`. See [CloudNativePG secrets](https://cloudnative-pg.io/documentation/current/applications/).
+2. `**Deployment/demo-api**` references that Secret so the pod receives the same URI as env `**DATABASE_URL**`.
+
+**Cluster bootstrap (application user):**
+
+```yaml
+# gitops/applications/base/postgres-cluster/cluster.yaml (spec excerpt)
+spec:
+  bootstrap:
+    initdb:
+      database: app
+      owner: app
+```
+
+**Deployment** — inject `**DATABASE_URL`** from the CNPG-generated Secret:
+
+```yaml
+# gitops/applications/base/demo-app/deployment.yaml (excerpt)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demo-api
+  namespace: app-dev
+spec:
+  template:
+    spec:
+      containers:
+        - name: demo-api
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: demo-app-db-app
+                  key: uri
+```
+
+**Ingress host** (overlay; use your own domain in Git):
+
+```yaml
+# gitops/applications/environments/dev/demo-app/patches/ingress.yaml
+- op: replace
+  path: /spec/rules/0/host
+  value: demo-app.alissonmachado.com.br
+- op: replace
+  path: /spec/tls/0/hosts/0
+  value: demo-app.alissonmachado.com.br
+```
+
+The container reads `**DATABASE_URL**` from the environment (the value injected above). For behavior outside Kubernetes, see the `**demo-app**` source under `cmd/demo-api` and `internal/`.
+
+Until `**Secret/demo-app-db-app**` exists, pods can stay `**CreateContainerConfigError**`. Inspect (redact when sharing):
+
+```bash
+kubectl get secret demo-app-db-app -n app-dev -o jsonpath='{.data.uri}' | base64 -d; echo
+```
+
+More backup/ops context: **[operations](operations.md#backups-cnpg)**, **[cnpg-backup-secrets](cnpg-backup-secrets.md)**.
 
 ## HTTP
 
-| Path | Purpose |
-|------|---------|
-| `GET /` | HTML dashboard + form |
-| `POST /demo/item` | Form → insert → redirect `/` |
-| `GET /healthz` | `{"status":"ok"}` |
-| `GET/POST /items` | JSON |
-| `GET /api/docs`, `/api/openapi.json` | Swagger |
-| `GET /metrics` | Prometheus |
 
-Boot: **`CREATE TABLE IF NOT EXISTS items`**.
+| Path                                 | Purpose                      |
+| ------------------------------------ | ---------------------------- |
+| `GET /`                              | HTML dashboard + form        |
+| `POST /demo/item`                    | Form → insert → redirect `/` |
+| `GET /healthz`                       | `{"status":"ok"}`            |
+| `GET/POST /items`                    | JSON                         |
+| `GET /api/docs`, `/api/openapi.json` | Swagger                      |
+| `GET /metrics`                       | Prometheus                   |
 
-## Postgres
 
-1. CNPG **`Cluster/major-upgrade-app-db`** in **`major-upgrade-app`** (or **`demo-app-db`** in **`app-dev`** with the **`demo-app`** overlay) — **`major-upgrade-app`** uses **`bootstrap.recovery`** from the Barman **PG17** archive (**`externalClusters`** + **`ObjectStore/demo-app-db-pg17-archive`**) and **`spec.imageName`** **18.3** (`postgres-cluster-spec` + `postgres-bootstrap-recovery` patches). **`demo-app`** overlay uses **`initdb`** as in the base.  
-2. **Barman Cloud (CNPG-I):** **`ObjectStore/demo-app-db-store`** in the **same namespace** as the cluster; S3 path **`s3://dev-test-cnpg-backups/major-upgrade-app/`** (major-upgrade overlay) or **`.../demo-app-db/`** (**demo-app** overlay). **`Cluster.spec.plugins`** → **`barman-cloud.cloudnative-pg.io`**, **`parameters.barmanObjectName: demo-app-db-store`**. Base **`gitops/applications/base/postgres-cluster/`** + overlay **`patches/`**.  
-3. **`ScheduledBackup/demo-app-db-daily`** — **`method: plugin`**, **`pluginConfiguration.name: barman-cloud.cloudnative-pg.io`**. Requires **`HelmRelease/plugin-barman-cloud`** in **`cnpg-system`**.  
-4. **`Secret/demo-app-db-app`**, key **`uri`**.  
-5. **`Deployment`** sets **`DATABASE_URL`** from that secret.  
-6. App uses **`DATABASE_URL`** or **`DB_*`** + **`DB_SSLMODE`** for local runs. **`LISTEN_ADDR`** default **`:8080`**.  
+## Postgres stack (demo-app )
 
-Upgrade path for Postgres: **[postgres-upgrade-strategy](postgres-upgrade-strategy.md)**. Backup / restore model: **[postgres-backup-strategy](postgres-backup-strategy.md)**, **[operations](operations.md#backups-cnpg)**.
+1. `**Cluster/demo-app-db`** in `**app-dev**` — `bootstrap.initdb` from `gitops/applications/base/postgres-cluster/` plus `environments/dev/demo-app/patches/`.
+2. **Barman Cloud (CNPG-I):** `ObjectStore/demo-app-db-store`, S3 prefix `s3://dev-test-cnpg-backups/demo-app-db/`, `ScheduledBackup` with `method: plugin`.
+3. `**HelmRelease/plugin-barman-cloud`** in `cnpg-system`.
+4. **Connection** — CNPG `**Secret/demo-app-db-app`** key `**uri**` → `**DATABASE_URL**` on `**Deployment/demo-api**` (see above).
 
-Until the secret exists, pods may stay **CreateContainerConfigError**. Network: **`network-policy-demo-api-allow.yaml`**.
+**Network:** `network-policy-demo-api-allow.yaml`.
 
-**Local:** `go run ./cmd/demo-api` from `demo-app/` without `DATABASE_URL` (defaults to localhost Postgres).
-
-**Backups:** S3 prefix per overlay (**`major-upgrade-app/`** vs **`demo-app-db/`**); Secret **`cnpg-s3-credentials`** in the app namespace — **[cnpg-backup-secrets](cnpg-backup-secrets.md)**.
+**Backups:** **[cnpg-backup-secrets](cnpg-backup-secrets.md)**.

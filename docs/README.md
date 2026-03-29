@@ -11,8 +11,8 @@ All project documentation lives under **`docs/`** (except the repository **[READ
 | [gitops.md](gitops.md) | Flux layout, repo tree, TLS, OpenBao bootstrap summary |
 | [cert-manager-gitops.md](cert-manager-gitops.md) | cert-manager operator + ClusterIssuers |
 | [monitoring-stack.md](monitoring-stack.md) | kube-prometheus-stack, CNPG PodMonitors |
-| [demo-app.md](demo-app.md) | demo-api, CNPG secret, routes |
-| [operations.md](operations.md) | Backups, Grafana, OpenBao, TLS checks |
+| [demo-app.md](demo-app.md) | demo-api; **`demo-app`** = normal CNPG Postgres; **`major-upgrade-app`** = major-upgrade example (CNPG + Barman) |
+| [operations.md](operations.md) | Barman backup & restore (YAML + `kubectl`), Grafana password, OpenBao, TLS |
 | [cnpg-backup-secrets.md](cnpg-backup-secrets.md) | `cnpg-s3-credentials` Secret |
 | [postgres-backup-strategy.md](postgres-backup-strategy.md) | Barman / CNPG backup & restore: classic vs **Barman Cloud plugin** + **`ObjectStore`** |
 | [postgres-upgrade-strategy.md](postgres-upgrade-strategy.md) | CNPG / Postgres upgrades |

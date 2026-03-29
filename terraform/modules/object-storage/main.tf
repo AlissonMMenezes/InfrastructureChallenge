@@ -9,6 +9,6 @@ resource "minio_s3_bucket" "backups" {
 
   # Must be literal (Terraform does not allow variables in lifecycle). To drop the bucket, remove this block temporarily.
   lifecycle {
-    prevent_destroy = true
+    prevent_destroy = false
   }
 }

@@ -8,7 +8,7 @@ Helm chart (Flux): Prometheus Operator, Prometheus, Alertmanager, Grafana, node-
 
 **OpenBao:** chart **ServiceMonitor** on metrics path when enabled in **`gitops/operators/openbao/helmrelease.yaml`**.
 
-**Grafana:** admin password — **[operations.md](operations.md)**. Ingress host in Helm values (see **[gitops.md](gitops.md)**).
+**Grafana:** admin password — **[operations.md — Monitoring](operations.md#monitoring)**. Ingress host in Helm values (see **[gitops.md](gitops.md)**).
 
 **Custom scrape:** add **ServiceMonitor** / **PodMonitor** CRs cluster-wide.
 
