@@ -19,10 +19,12 @@ Boot: **`CREATE TABLE IF NOT EXISTS items`**.
 
 ## Postgres
 
-1. CNPG **`Cluster/demo-app-db`** in **`app-dev`**.  
+1. CNPG **`Cluster/demo-app-db`** in **`app-dev`** — Postgres version is **`spec.imageName`** (e.g. `ghcr.io/cloudnative-pg/postgresql:<tag>`); change the tag to select the operand image.  
 2. **`Secret/demo-app-db-app`**, key **`uri`**.  
 3. **`Deployment`** sets **`DATABASE_URL`** from that secret.  
-4. App uses **`DATABASE_URL`** or **`DB_*`** + **`DB_SSLMODE`** for local runs. **`LISTEN_ADDR`** default **`:8080`**.
+4. App uses **`DATABASE_URL`** or **`DB_*`** + **`DB_SSLMODE`** for local runs. **`LISTEN_ADDR`** default **`:8080`**.  
+
+Upgrade path for Postgres: **[postgres-upgrade-strategy](postgres-upgrade-strategy.md)**.
 
 Until the secret exists, pods may stay **CreateContainerConfigError**. Network: **`network-policy-demo-api-allow.yaml`**.
 

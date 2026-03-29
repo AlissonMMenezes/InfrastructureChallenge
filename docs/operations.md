@@ -8,6 +8,8 @@ Clusters **`dev-postgres`** (`postgres`) and **`demo-app-db`** (`app-dev`) → b
 
 Create **`Secret/cnpg-s3-credentials`** (keys **`ACCESS_KEY_ID`**, **`ACCESS_SECRET_KEY`**) in **`postgres`** and **`app-dev`**: **[cnpg-backup-secrets](cnpg-backup-secrets.md)**, **`gitops/infrastructure/postgres/BACKUP.md`**.
 
+**Backup management (policy):** align retention, RPO/RTO, and restore testing with **[Barman](https://docs.pgbarman.org/)** concepts — see **[postgres-backup-strategy](postgres-backup-strategy.md)**.
+
 ## Restore (outline)
 
 Stop writers → new `Cluster` with `bootstrap.recovery` from backup → verify → point apps → resume.

@@ -10,7 +10,7 @@ Hetzner VMs (**Terraform**), **kubeadm** cluster (**Ansible**), platform and app
 | Order of work | [docs/getting-started.md](docs/getting-started.md) |
 | Terraform / Ansible / Flux | [docs/terraform.md](docs/terraform.md), [docs/ansible.md](docs/ansible.md), [docs/gitops.md](docs/gitops.md) |
 | Demo API | [docs/demo-app.md](docs/demo-app.md) |
-| Backups & ops | [docs/operations.md](docs/operations.md), [docs/cnpg-backup-secrets.md](docs/cnpg-backup-secrets.md) |
+| Backups & ops | [docs/operations.md](docs/operations.md), [docs/cnpg-backup-secrets.md](docs/cnpg-backup-secrets.md), [docs/postgres-backup-strategy.md](docs/postgres-backup-strategy.md) |
 | Postgres upgrades | [docs/postgres-upgrade-strategy.md](docs/postgres-upgrade-strategy.md) |
 | Design | [docs/architecture.md](docs/architecture.md), [docs/security.md](docs/security.md) |
 
@@ -58,6 +58,10 @@ Challenge-oriented notes: [docs/leadership.md](docs/leadership.md).
 - [X] GitOps Code and Workflow
   - [X] Create manifests for required operators
     - [X] CloudNativePG
+    - [X] Cert-Manager ( for lets encrypt )
+    - [X] External Secrets Operator
+    - [X] Kube-Prometheus-Stack
+    - [X] OpenBao
   - [X] Configure CloudNativePG
     - [X] 3 PostgreSQL instances
     - [X] Persistent volumes
@@ -74,14 +78,14 @@ Challenge-oriented notes: [docs/leadership.md](docs/leadership.md).
 
 #### 27.03.2026 - Work on Upgrades
 
-- [ ] Work on Upgrades
-  - [ ] PostgreSQL Upgrade
+- [X] Work on Upgrades
+  - [X] PostgreSQL Upgrade
   - [X] GitOps Change Management
 
 #### 28.03.2026 - Deploy Applications
 
 - [X] Deploy Applications
-  - [X] Deploy demo-app via GitOps (**`applications/environments/dev`**) with CNPG, ESO/OpenBao, **HTTPS** ingress (Let’s Encrypt)
+  - [X] Deploy demo-app via GitOps with CNPG, **HTTPS** ingress (Let’s Encrypt)
 
 #### 28.03.2026 - Update Documentation
 

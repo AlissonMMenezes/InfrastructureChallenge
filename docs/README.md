@@ -9,6 +9,7 @@
 | [demo-app.md](demo-app.md) | demo-api, CNPG secret, routes |
 | [operations.md](operations.md) | Backups, Grafana, OpenBao, TLS checks |
 | [cnpg-backup-secrets.md](cnpg-backup-secrets.md) | `cnpg-s3-credentials` Secret |
+| [postgres-backup-strategy.md](postgres-backup-strategy.md) | Backup policy aligned with [Barman docs](https://docs.pgbarman.org/) |
 | [postgres-upgrade-strategy.md](postgres-upgrade-strategy.md) | CNPG / Postgres upgrades |
 | [architecture.md](architecture.md) | Network and components |
 | [repository-structure.md](repository-structure.md) | Top-level dirs |

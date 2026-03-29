@@ -5,7 +5,14 @@
 | `dev-postgres` | `postgres` | `gitops/infrastructure/postgres/cluster.yaml` |
 | `demo-app-db` | `app-dev` | `gitops/applications/base/demo-app/postgres-cluster.yaml` |
 
-Operator: `gitops/operators/cloudnative-pg/helmrelease.yaml`. **Authoritative:** [CNPG upgrading](https://cloudnative-pg.io/documentation/current/upgrading/).
+Operator: `gitops/operators/cloudnative-pg/helmrelease.yaml`. **Authoritative:** [CNPG upgrading](https://cloudnative-pg.io/docs/1.28/installation_upgrade#upgrades).
+
+## Choosing / changing the Postgres version
+
+- **`Cluster.spec.imageName`** — full image ref for that cluster; changing it triggers a rolling operand upgrade (see [package tags](https://github.com/cloudnative-pg/postgresql/pkgs/container/postgresql)). Match **[operator-supported](https://cloudnative-pg.io/documentation/current/supported_releases/)** images.
+- **`POSTGRES_IMAGE_NAME`** — set under **`HelmRelease/cloudnative-pg`** → **`values.config.data`** ([operator config](https://cloudnative-pg.io/documentation/current/operator_conf/)). This is the **default** operand image for **`Cluster`** objects that **omit** **`imageName`**. After changing operator config, **restart** the operator deployment if the chart does not roll it automatically. Keep this value **aligned** with the image you intend as standard when you use explicit **`imageName`** everywhere, so defaults and docs stay consistent.
+
+Optional rollout spacing (same **`config.data`**): **`CLUSTERS_ROLLOUT_DELAY`**, **`INSTANCES_ROLLOUT_DELAY`** (seconds) to stagger upgrades during large operator reconciliations.
 
 ## Rules
 
