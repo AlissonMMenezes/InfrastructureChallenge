@@ -3,7 +3,7 @@
 ## Secret management
 
 - Do not commit plaintext credentials.
-- This repo uses **OpenBao** (Vault-compatible API) with **External Secrets Operator**: **`PushSecret`** copies CloudNativePG bootstrap credentials into OpenBao KV; **`ExternalSecret`** materializes **`Secret`** objects for workloads (see **`docs/gitops.md`**). OpenBao **Kubernetes auth** roles and policies are **not** stored in Git — configure them after install.
+- This repo uses **OpenBao** (Vault-compatible API) with **External Secrets Operator**: **`PushSecret`** copies CloudNativePG bootstrap credentials into OpenBao KV; **`ExternalSecret`** materializes **`Secret`** objects for workloads (see **`docs/gitops.md`**). **Policy** HCL and the **bootstrap Job** live in **`gitops/infrastructure/openbao-kubernetes-auth/`**; the **root token** used to run **`bao write`** against the API must **not** be committed — create **`Secret/openbao-bootstrap`** manually (see **[GitOps → OpenBao Kubernetes auth bootstrap](gitops.md#openbao-kubernetes-auth-bootstrap)**).
 - Alternatives for other workloads: cloud secret managers + ESO, or **SOPS**-encrypted manifests.
 - **Public ingress** to OpenBao or Grafana increases attack surface; restrict by IP, SSO, or disable when not needed.
 

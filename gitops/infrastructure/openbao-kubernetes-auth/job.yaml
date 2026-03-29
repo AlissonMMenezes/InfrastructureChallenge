@@ -1,0 +1,42 @@
+# One-shot bootstrap: enables auth/kubernetes, writes config (TokenReview via OpenBao SA token), policy, role external-secrets.
+# Requires: OpenBao initialized + unsealed; Secret openbao-bootstrap with key root-token (not stored in Git).
+# After changing the script, delete the Job so Flux can recreate it (Job spec.template is immutable).
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: openbao-kubernetes-auth-bootstrap
+  namespace: openbao-system
+spec:
+  ttlSecondsAfterFinished: 86400
+  backoffLimit: 3
+  activeDeadlineSeconds: 900
+  template:
+    spec:
+      restartPolicy: Never
+      serviceAccountName: openbao
+      containers:
+        - name: bootstrap
+          image: quay.io/openbao/openbao:v2.5.2
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: BAO_ADDR
+              value: http://openbao.openbao-system.svc.cluster.local:8200
+            - name: TOKEN_FILE
+              value: /bootstrap/root-token
+          command: ["/bin/sh", "/scripts/bootstrap.sh"]
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+              readOnly: true
+            - name: root-token
+              mountPath: /bootstrap
+              readOnly: true
+      volumes:
+        - name: scripts
+          configMap:
+            name: openbao-kubernetes-auth-bootstrap
+            defaultMode: 0755
+        - name: root-token
+          secret:
+            secretName: openbao-bootstrap
+            optional: true

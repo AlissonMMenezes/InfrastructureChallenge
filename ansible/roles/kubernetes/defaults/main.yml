@@ -44,6 +44,10 @@ kubernetes_precheck_apiserver_port_skip_when_bootstrapped: true
 
 # Kubeadm preflight: unique product_uuid + MACs across kubeadm_cluster (requires role on all cluster nodes in the same play).
 kubernetes_validate_unique_node_identity: true
+# Excluded from the cross-node MAC uniqueness assertion (placeholder/virtual NICs; often identical on every host).
+kubernetes_identity_ignored_duplicate_macs:
+  - "ee:ee:ee:ee:ee:ee"
+  - "00:00:00:00:00:00"
 
 # postchecks/main.yml — wait for API / nodes after CNI
 kubernetes_verify_api_retries: 30

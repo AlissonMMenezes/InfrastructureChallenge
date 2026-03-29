@@ -1,5 +1,6 @@
 ---
 # Kubeadm / Kubernetes expect unique SMBIOS product_uuid and non-colliding NIC MACs across nodes.
+# Kernel placeholder MACs (e.g. ee:ee:ee:ee:ee:ee on tunnels) are ignored for uniqueness — see kubernetes_identity_ignored_duplicate_macs.
 # Per-host tasks run on all hosts first (linear strategy); run_once validation runs after every host has facts.
 # Ref: https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
 
@@ -77,10 +78,11 @@
     that:
       - _cluster_all_macs | length == (_cluster_all_macs | unique | length)
     fail_msg: >-
-      Duplicate MAC address seen on more than one node (flattened non-loopback MACs from all nodes).
-      MAC list: {{ _cluster_all_macs | to_json }}
+      Duplicate MAC address seen on more than one node after ignoring placeholder/virtual MACs
+      ({{ kubernetes_identity_ignored_duplicate_macs | to_json }}).
+      Remaining MAC list: {{ _cluster_all_macs | to_json }}
   vars:
-    _cluster_all_macs: "{{ groups['kubeadm_cluster'] | default([]) | map('extract', hostvars, 'kubernetes_node_mac_list') | flatten | list }}"
+    _cluster_all_macs: "{{ (groups['kubeadm_cluster'] | default([]) | map('extract', hostvars, 'kubernetes_node_mac_list') | flatten | list) | difference(kubernetes_identity_ignored_duplicate_macs | default([])) }}"
   delegate_to: localhost
   run_once: true
   become: false

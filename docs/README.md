@@ -7,7 +7,7 @@ Technical guides for this repository. **Project delivery plan, team structure, a
 | [Getting started](getting-started.md) | Recommended order: Terraform → Ansible → Flux, and where to look next |
 | [Terraform](terraform.md) | Provisioning Hetzner VMs, variables, environments |
 | [Ansible](ansible.md) | Node prep, Kubernetes bootstrap, optional Flux install |
-| [GitOps (Flux)](gitops.md) | Bootstrap, sync layout, **dependsOn** ordering, **HTTPS** / Let’s Encrypt, **OpenBao** + **ESO**, demo app, public hostnames |
+| [GitOps (Flux)](gitops.md) | Bootstrap, sync layout, **dependsOn** ordering, **HTTPS** / Let’s Encrypt, **OpenBao** (Kubernetes auth bootstrap + **ESO**), demo app, public hostnames |
 | [Repository structure](repository-structure.md) | What each top-level directory is for |
 | [Architecture](architecture.md) | Network topology, cluster design, GitOps flow |
 | [Operations](operations.md) | Backups, restore, monitoring, upgrades |

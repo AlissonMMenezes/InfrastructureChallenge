@@ -14,6 +14,9 @@ spec:
     name: flux-system
   timeout: 15m0s
   wait: true
+  dependsOn:
+    - name: operators
+      namespace: flux-system
   healthChecks:
     - apiVersion: postgresql.cnpg.io/v1
       kind: Cluster

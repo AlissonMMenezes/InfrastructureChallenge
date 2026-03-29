@@ -8,7 +8,7 @@ This tree is intended for **Flux v2** (`flux bootstrap github` / `flux install` 
 |------|---------|
 | **`clusters/<env>/`** | Cluster bootstrap path: kustomize bundle of Flux `HelmRepository`, `HelmRelease`, and `Kustomization` objects. Point **`flux bootstrap github --path`** here (e.g. `./gitops/clusters/dev`). |
 | **`applications/environments/<env>/demo-app/`** (example) | Dev **demo-app** overlay can include **`image-automation.yaml`** next to **`kustomization.yaml`** so registry policies and the **`ImageUpdateAutomation`** path stay with the app. |
-| **`infrastructure/`** | Shared platform: **Let’s Encrypt** `ClusterIssuer`, **OpenBao** `Ingress`, **Traefik** `HelmRelease`, CloudNativePG **`Cluster`** (e.g. **`postgres/`**), namespaces. Synced by **`clusters/dev/infrastructure.yaml`** with **`dependsOn: operators`**. |
+| **`infrastructure/`** | Shared platform: **Let’s Encrypt** `ClusterIssuer`, **OpenBao** **`auth/kubernetes`** bootstrap (**`openbao-kubernetes-auth/`**), **OpenBao** `Ingress`, **Traefik** `HelmRelease`, CloudNativePG **`Cluster`** (e.g. **`postgres/`**), namespaces. Synced by **`clusters/dev/infrastructure.yaml`** with **`dependsOn: operators`**. |
 | **`operators/cert-manager/`** | Jetstack **`HelmRepository`** + **`cert-manager`** **`HelmRelease`** (ACME / Let’s Encrypt TLS). |
 | **`operators/kube-prometheus-stack/`** | **`prometheus-community`** **`HelmRepository`** + **`kube-prometheus-stack`** (Prometheus, **Grafana** + **Flux** dashboards folder, **PodMonitor** for Flux controllers, KSM **CRS** for **`gotk_resource_info`**, ingress/TLS for Grafana). See **`operators/kube-prometheus-stack/README.md`**. |
 | **`operators/cloudnative-pg/`** | CNPG Helm **`HelmRepository`** + **`HelmRelease`** (operator install). |
@@ -17,6 +17,7 @@ This tree is intended for **Flux v2** (`flux bootstrap github` / `flux install` 
 | **`operators/postgres/`** (legacy / prod samples) | Older layout in some branches; **dev** uses **`operators/cloudnative-pg`**. |
 | **`applications/base/`**, **`applications/environments/<env>/`** | **Kustomize** bases and overlays (e.g. demo app: **`base/demo-app/`**, dev patch **`environments/dev/demo-app/`**). Flux **`applications`** `Kustomization` points at **`environments/dev/`** for the dev cluster. |
 | **`infrastructure/cert-manager-issuers/`** | **`ClusterIssuer`** for **Let’s Encrypt** (HTTP-01, Traefik ingress class). |
+| **`infrastructure/openbao-kubernetes-auth/`** | **Job** + RBAC: configures OpenBao **`auth/kubernetes`**, policy, and role **`external-secrets`** for **ESO** (after **`Secret/openbao-bootstrap`** with **`root-token`**; see **`docs/gitops.md`**). |
 | **`infrastructure/openbao-ingress/`** | **`Ingress`** exposing OpenBao on a public hostname (TLS via cert-manager). |
 
 ## Bootstrap assumptions

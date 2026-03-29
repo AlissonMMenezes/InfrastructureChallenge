@@ -29,7 +29,7 @@ The dev entrypoint (`kustomization.yaml`) pulls in, in order:
 |--------|------------------------------|--------------|------|
 | **Operators** | `operators` | `gitops/operators/` | Third-party **operators** installed with **Helm** (Flux `HelmRepository` + `HelmRelease`) |
 | **Applications** | `applications` | `gitops/applications/environments/dev/` | App workloads (Kustomize / plain manifests), e.g. demo app |
-| **Infrastructure** | `infrastructure` | `gitops/infrastructure/` | **Cluster platform** after operators: **Let’s Encrypt** (`ClusterIssuer/letsencrypt-prod`), **OpenBao** public **Ingress**, **Traefik**, shared **Postgres** `Cluster` (e.g. `dev-postgres`), etc. |
+| **Infrastructure** | `infrastructure` | `gitops/infrastructure/` | **Cluster platform** after operators: **Let’s Encrypt** (`ClusterIssuer/letsencrypt-prod`), **OpenBao** **Kubernetes auth** bootstrap (**`openbao-kubernetes-auth/`**), public **Ingress**, **Traefik**, shared **Postgres** `Cluster` (e.g. `dev-postgres`), etc. |
 | **Image automation** | (with app overlay) | `gitops/applications/environments/dev/demo-app/image-automation.yaml` | Flux **ImageRepository** / **ImagePolicy** / **ImageUpdateAutomation** (optional CI → image bumps in Git; **`update.path`** targets the same folder as **`kustomization.yaml`**) |
 
 **Flux `dependsOn` (dev):** **`infrastructure`** waits for **`operators`** (CRDs and Helm installs, including cert-manager and OpenBao, exist before the `ClusterIssuer` and ingress manifests). **`applications`** waits for **`operators`** and **`infrastructure`** so **Let’s Encrypt** issuers and shared ingress plumbing exist before app ingresses and certificates. The root `gitops/clusters/dev/kustomization.yaml` only lists child Flux `Kustomization` files; ordering is defined on those CRs, not by file list order.
@@ -38,7 +38,7 @@ The dev entrypoint (`kustomization.yaml`) pulls in, in order:
 
 - **Operators** (`gitops/operators/`): install **software operators** into the cluster — Helm charts for **CloudNativePG**, **cert-manager**, **kube-prometheus-stack**, **OpenBao**, **External Secrets Operator**, etc. Each component usually has its own namespace (`cnpg-system`, `cert-manager`, `monitoring`, `openbao-system`, `external-secrets`, …). OpenBao uses the **official Helm chart** (StatefulSet server + optional **injector** webhook); ESO syncs secrets using provider APIs (here, OpenBao via the Vault-compatible provider).
 
-- **Infrastructure** (`gitops/infrastructure/`): **use** those APIs and wire the platform — e.g. **cert-manager** `ClusterIssuer` (Let’s Encrypt HTTP-01 via **Traefik**), **Ingress** for public **OpenBao** (`openbao.alissonmachado.com.br`), **Traefik** `HelmRelease`, **PostgreSQL `Cluster`** manifests (CNPG, e.g. under `postgres/`), and related namespaces. This is “what we run **on top of** the operators,” not the operator Helm charts themselves.
+- **Infrastructure** (`gitops/infrastructure/`): **use** those APIs and wire the platform — e.g. **cert-manager** `ClusterIssuer` (Let’s Encrypt HTTP-01 via **Traefik**), **Job** + RBAC under **`openbao-kubernetes-auth/`** (configures OpenBao **`auth/kubernetes`** for External Secrets; needs **`Secret/openbao-bootstrap`** created out-of-band), **Ingress** for public **OpenBao** (`openbao.alissonmachado.com.br`), **Traefik** `HelmRelease`, **PostgreSQL `Cluster`** manifests (CNPG, e.g. under `postgres/`), and related namespaces. This is “what we run **on top of** the operators,” not the operator Helm charts themselves.
 
 - **Applications** (`gitops/applications/`): **tenant/workload** manifests (demo API, ServiceMonitors, NetworkPolicies), often layered as **base** + **environment** overlays.
 
@@ -74,13 +74,45 @@ The **dev** overlay patches the CloudNativePG **`Cluster/demo-app-db`** to **`sp
 
 **`ClusterSecretStore/openbao`** uses the Vault-compatible provider against **`http://openbao.openbao-system.svc.cluster.local:8200`** and **Kubernetes auth** with **`ServiceAccount/external-secrets`** in **`external-secrets`**.
 
-### OpenBao bootstrap (not in Git)
+### OpenBao Kubernetes auth bootstrap
 
-**Prerequisite:** the in-cluster OpenBao server must be **initialized** and **unsealed** or the API will not serve requests and logs will repeat **INFO** messages about the **security barrier** / **seal**. Follow **[Operations → OpenBao initialize and unseal](operations.md#openbao-initialize-and-unseal)** first.
+**Goal:** OpenBao must serve **`auth/kubernetes`** (with **`auth/kubernetes/config`** pointing at the cluster API), a **policy** for KV paths under **`demo-app`**, and a **role** **`external-secrets`** bound to **`ServiceAccount/external-secrets`** in **`external-secrets`**. The **`ClusterSecretStore`** manifest (**`gitops/applications/base/demo-app/clustersecretstore-openbao.yaml`**) already requests **Kubernetes auth** at mount **`kubernetes`** and **`role: external-secrets`**; the server-side wiring is applied by GitOps plus a one-time **root token** Secret.
 
-On OpenBao, enable the **`secret`** KV v2 mount (if not already), **Kubernetes auth** at **`kubernetes`**, and a role **`external-secrets`** bound to **`external-secrets`/`external-secrets`** with a policy that allows **read and write** on **`secret/data/demo-app/postgres`**. Until that exists, **`ClusterSecretStore`** and the **PushSecret** / **ExternalSecret** resources stay degraded; **`demo-api`** pods need **`demo-app-postgres`** before they can start.
+**Prerequisite:** initialize and unseal OpenBao — see **[Operations → OpenBao initialize and unseal](operations.md#openbao-initialize-and-unseal)**.
 
-The OpenBao **injector** is optional for this app; the demo API no longer uses sidecar injection for DB credentials.
+**Helm:** **`gitops/operators/openbao/helmrelease.yaml`** sets **`server.route.authDelegator.enabled: true`** so the OpenBao server **ServiceAccount** can participate in **TokenReview** (required for **`auth/kubernetes/config`**).
+
+**GitOps path:** **`gitops/infrastructure/openbao-kubernetes-auth/`** (synced by the **`infrastructure`** Flux `Kustomization`) contains:
+
+| Artifact | Role |
+|----------|------|
+| **`external-secrets-openbao.hcl`** | Policy **`external-secrets-openbao`** (KV v2 under **`secret/data/demo-app/*`** and **`secret/metadata/demo-app/*`**) — versioned in Git. |
+| **`bootstrap.sh`** | Enables **`secret`** KV v2 (if needed), **`auth enable kubernetes`**, writes **`auth/kubernetes/config`**, applies the policy, creates role **`external-secrets`**. |
+| **Job** **`openbao-kubernetes-auth-bootstrap`** | Runs the script as **`ServiceAccount/openbao`**; reads **`Secret/openbao-bootstrap`** key **`root-token`** (you create this; never commit it). |
+| **RBAC** | Lets **`ServiceAccount/openbao`** **`get`** **`Secret/openbao-bootstrap`**. |
+
+**Operator steps (once per cluster / after init + unseal):**
+
+1. **Create the bootstrap Secret** (never commit the root token to Git):
+
+   ```bash
+   kubectl create secret generic openbao-bootstrap -n openbao-system \
+     --from-literal=root-token='YOUR_ROOT_TOKEN'
+   ```
+
+2. **If the Job already completed** without configuring auth (missing Secret, OpenBao still sealed, etc.), delete it so it runs again:
+
+   ```bash
+   kubectl delete job -n openbao-system openbao-kubernetes-auth-bootstrap
+   ```
+
+   Flux will recreate the Job on the next **`infrastructure`** reconcile, or run **`flux reconcile kustomization infrastructure -n flux-system --with-source`**.
+
+3. **Verify:** `kubectl logs -n openbao-system job/openbao-kubernetes-auth-bootstrap` should end with **`OpenBao Kubernetes auth ready`**. **`ExternalSecret`** / **`PushSecret`** should leave **`ReplicaFailure`** once OpenBao accepts Kubernetes logins.
+
+Until this succeeds, **`PushSecret`** / **`ExternalSecret`** for the demo app stay degraded; **`demo-api`** needs **`Secret/demo-app-postgres`**.
+
+The OpenBao **injector** is optional for this app; the demo API does not use sidecar injection for DB credentials.
 
 ## HTTPS (Let’s Encrypt) and public hostnames
 

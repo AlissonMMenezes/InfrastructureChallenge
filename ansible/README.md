@@ -251,7 +251,7 @@ Set **`kubernetes_version`** on **`kubeadm_cluster`** so apt uses **`pkgs.k8s.io
 
 ### Kubeadm preflight: unique `product_uuid` and MACs
 
-The **`kubernetes`** role runs **`tasks/prechecks/validate_cluster_node_identity.yml`** when **`kubernetes_validate_unique_node_identity`** is `true`: collects non-loopback MACs and **`product_uuid`**, asserts **no duplicates** across **`kubeadm_cluster`**. Disable only if you must (**not** recommended): **`kubernetes_validate_unique_node_identity: false`**.
+The **`kubernetes`** role runs **`tasks/prechecks/validate_cluster_node_identity.yml`** when **`kubernetes_validate_unique_node_identity`** is `true`: collects non-loopback MACs and **`product_uuid`**, asserts **no duplicates** across **`kubeadm_cluster`**. Placeholder MACs (e.g. **`ee:ee:ee:ee:ee:ee`**, **`00:00:00:00:00:00`**) are omitted from the MAC check — tunable via **`kubernetes_identity_ignored_duplicate_macs`**. Disable only if you must (**not** recommended): **`kubernetes_validate_unique_node_identity: false`**.
 
 ### Control-plane port precheck
 

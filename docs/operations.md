@@ -123,7 +123,14 @@ Do this **once per empty data volume**. If you **delete the PVC** or start on ne
 
 **After a pod restart** (same PVC, Shamir seal, no auto-unseal): the server may be **sealed** again. Run **`bao operator unseal`** with the **same** key(s); do **not** run **`init`** again or you will make the storage unusable. For production, plan **auto-unseal** (KMS, etc.) instead of relying on manual unseal.
 
-Next, configure **KV** and **Kubernetes auth** for External Secrets (not in Git) — see **[GitOps → Demo app: OpenBao bootstrap](gitops.md#demo-app-postgresql-cnpg-openbao-and-external-secrets-operator)**.
+### OpenBao Kubernetes auth (External Secrets)
+
+So **External Secrets Operator** can **PushSecret** / **ExternalSecret** against OpenBao using **Kubernetes auth** (same as **`ClusterSecretStore/openbao`** in Git), apply the GitOps bootstrap:
+
+1. Create **`Secret/openbao-bootstrap`** in **`openbao-system`** with your **root token** (see **[GitOps → OpenBao Kubernetes auth bootstrap](gitops.md#openbao-kubernetes-auth-bootstrap)**).
+2. Ensure Job **`openbao-kubernetes-auth-bootstrap`** runs successfully (delete the Job to retry if it skipped earlier).
+
+Policy and role names are defined in **`gitops/infrastructure/openbao-kubernetes-auth/`**; only the **root token** is supplied out-of-band.
 
 ### OpenBao web UI login
 

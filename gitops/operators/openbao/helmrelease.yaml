@@ -37,6 +37,11 @@ spec:
       enabled: true
     server:
       enabled: true
+      # Binds system:auth-delegator to the server ServiceAccount (required for auth/kubernetes TokenReview).
+      # Values path follows chart layout (under OpenShift route block). https://openbao.org/docs/auth/kubernetes
+      route:
+        authDelegator:
+          enabled: true
       standalone:
         enabled: true
         # Advertises the public URL (TLS terminated at Traefik) for redirects and CLI; in-cluster clients may still use the Service DNS.
