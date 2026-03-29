@@ -1,14 +1,21 @@
-# Strategic merge: PG 17 operand, plugin → ObjectStore in major-upgrade-app.
+# Operand 18.3 + WAL ObjectStore; externalClusters defines Barman source for recovery (plugin + ObjectStore CR name).
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
-  name: demo-app-db
-  namespace: major-upgrade-app
+  name: app-postgres
+  namespace: app
 spec:
-  imageName: ghcr.io/cloudnative-pg/postgresql:17.6-system-trixie
+  imageName: ghcr.io/cloudnative-pg/postgresql:18.3-system-trixie
   instances: 3
   plugins:
     - name: barman-cloud.cloudnative-pg.io
       isWALArchiver: true
       parameters:
         barmanObjectName: demo-app-db-store
+  externalClusters:
+    - name: pg17-barman-source
+      plugin:
+        name: barman-cloud.cloudnative-pg.io
+        parameters:
+          barmanObjectName: demo-app-db-pg17-archive
+          serverName: demo-app-db

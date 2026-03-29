@@ -1,0 +1,8 @@
+# recovery.source must equal externalClusters[].name (pg17-barman-source), not the Cluster metadata name.
+- op: replace
+  path: /spec/bootstrap
+  value:
+    recovery:
+      source: pg17-barman-source
+      database: app
+      owner: app

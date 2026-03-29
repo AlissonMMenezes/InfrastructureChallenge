@@ -1,0 +1,22 @@
+# Barman archive for bootstrap.recovery: must match externalClusters[].plugin.parameters.barmanObjectName.
+# destinationPath must be where PG17 backups + WAL were written (source cluster name demo-app-db → prefix demo-app-db/).
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: demo-app-db-pg17-archive
+spec:
+  retentionPolicy: "30d"
+  configuration:
+    destinationPath: s3://dev-test-cnpg-backups/demo-app-db/
+    endpointURL: https://fsn1.your-objectstorage.com
+    s3Credentials:
+      accessKeyId:
+        name: cnpg-s3-credentials
+        key: ACCESS_KEY_ID
+      secretAccessKey:
+        name: cnpg-s3-credentials
+        key: ACCESS_SECRET_KEY
+    wal:
+      compression: gzip
+    data:
+      compression: gzip

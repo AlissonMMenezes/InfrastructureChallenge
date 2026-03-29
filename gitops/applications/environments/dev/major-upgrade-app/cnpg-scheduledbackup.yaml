@@ -1,14 +1,14 @@
-# Plugin-based backup; cluster and credentials Secret live in major-upgrade-app.
+# After recovery, scheduled backups use plugin + demo-app-db-store; cluster name matches CNPG Cluster.
 apiVersion: postgresql.cnpg.io/v1
 kind: ScheduledBackup
 metadata:
-  name: demo-app-db-daily
+  name: major-upgrade-app-db-daily
   namespace: major-upgrade-app
 spec:
   schedule: "0 */5 * * * *"
   backupOwnerReference: self
   cluster:
-    name: demo-app-db
+    name: major-upgrade-app-db
   method: plugin
   pluginConfiguration:
     name: barman-cloud.cloudnative-pg.io

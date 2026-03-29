@@ -5,12 +5,14 @@ namespace: major-upgrade-app
 
 resources:
   - ../../../base/demo-app/
+  - objectstore-pg17-archive.yaml
   - cnpg-scheduledbackup.yaml
 
 images:
   - name: ghcr.io/alissonmmenezes/demo-app # {"$imagepolicy": "flux-system:demo-app:name"}
     newTag: 0.1.13 # {"$imagepolicy": "flux-system:demo-app:tag"}
 
+# Order: patch Cluster spec + recovery on app-postgres, then rename Cluster; patch ObjectStore; patch app refs to new cluster name.
 patches:
   - path: patches/namespace-rename.yaml
     target:
@@ -30,6 +32,20 @@ patches:
       kind: ServiceMonitor
       name: demo-api
       namespace: app-dev
+  - path: patches/postgres-cluster-spec.yaml
+    target:
+      group: postgresql.cnpg.io
+      version: v1
+      kind: Cluster
+      name: app-postgres
+      namespace: app
+  - path: patches/postgres-bootstrap-recovery.yaml
+    target:
+      group: postgresql.cnpg.io
+      version: v1
+      kind: Cluster
+      name: app-postgres
+      namespace: app
   - path: patches/postgres-cluster-metadata.yaml
     target:
       group: postgresql.cnpg.io
@@ -44,4 +60,17 @@ patches:
       kind: ObjectStore
       name: app-postgres-store
       namespace: app
-  - path: patches/postgres-cluster-spec.yaml
+  - path: patches/deployment-cnpg-secret.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: demo-api
+      namespace: app-dev
+  - path: patches/networkpolicy-cnpg-cluster.yaml
+    target:
+      group: networking.k8s.io
+      version: v1
+      kind: NetworkPolicy
+      name: allow-demo-api-traffic
+      namespace: app-dev
