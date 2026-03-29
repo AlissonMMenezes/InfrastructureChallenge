@@ -1,0 +1,23 @@
+{{define "swagger"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <title>demo-api — API docs</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5/swagger-ui.css" crossorigin="anonymous"/>
+</head>
+<body>
+<div id="swagger-ui"></div>
+<script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js" crossorigin="anonymous"></script>
+<script>
+  window.onload = () => {
+    window.ui = SwaggerUIBundle({
+      url: {{js .OpenAPIURL}},
+      dom_id: "#swagger-ui",
+      presets: [SwaggerUIBundle.presets.apis],
+    });
+  };
+</script>
+</body>
+</html>
+{{end}}

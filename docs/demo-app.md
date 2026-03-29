@@ -4,7 +4,7 @@ This document describes the **demo-api** sample application: what it does in the
 
 ## What it is
 
-- **Source:** [`demo-app/`](../demo-app/) — Python **FastAPI** app using **psycopg** (PostgreSQL driver).
+- **Source:** [`demo-app/`](../demo-app/) — **Go** service: entrypoint [`cmd/demo-api`](../demo-app/cmd/demo-api), packages under [`internal/`](../demo-app/internal/) (**`config`**, **`db`**, **`httpserver`** with embedded templates and OpenAPI), **pgx** for PostgreSQL.
 - **Image:** Built and pushed by [`.github/workflows/demo-app-image.yml`](../.github/workflows/demo-app-image.yml) to **GHCR** (`ghcr.io/<github-owner-lowercase>/demo-app`, tags `latest`, `0.1.<run_number>`, and `sha-<short>`).
 - **GitOps:** Base manifests live under [`gitops/applications/base/demo-app/`](../gitops/applications/base/demo-app/); the **dev** cluster uses an overlay at [`gitops/applications/environments/dev/demo-app/`](../gitops/applications/environments/dev/demo-app/) (Ingress host, Postgres replica count, optional Flux image automation).
 
@@ -17,7 +17,7 @@ The app exposes:
 | **`GET /healthz`** | Liveness/readiness-style check (`{"status": "ok"}`). |
 | **`GET /items`**, **`POST /items`** | JSON API — minimal CRUD over **`items`**. |
 | **`GET /api/docs`** | Swagger UI (OpenAPI moved under **`/api`** so **`/`** is the UI). |
-| **`GET /metrics`** | Prometheus metrics (via `prometheus-fastapi-instrumentator`). |
+| **`GET /metrics`** | Prometheus metrics (**`prometheus/client_golang`**). |
 
 On startup it runs **`CREATE TABLE IF NOT EXISTS items`** so an empty database becomes usable without manual migration.
 
@@ -41,7 +41,7 @@ On startup it runs **`CREATE TABLE IF NOT EXISTS items`** so an empty database b
            key: uri
    ```
 
-5. **`demo-app/src/main.py`** prefers **`DATABASE_URL`** when set and passes it straight to **`psycopg.connect()`**. If **`DATABASE_URL`** is unset (local runs), it falls back to separate **`DB_HOST`**, **`DB_PORT`**, **`DB_NAME`**, **`DB_USER`**, **`DB_PASSWORD`** with defaults suitable for local development.
+5. **`demo-app`** prefers **`DATABASE_URL`** when set and passes it to **pgx**. If **`DATABASE_URL`** is unset (local runs), it falls back to **`DB_HOST`**, **`DB_PORT`**, **`DB_NAME`**, **`DB_USER`**, **`DB_PASSWORD`** (and optional **`DB_SSLMODE`**, default **`disable`**) to build a **`postgres://`** URI.
 
 ```mermaid
 flowchart LR
@@ -76,7 +76,7 @@ Image tags in the overlay may differ from **`latest`** in the base; follow the *
 
 ## Local development (without the cluster secret)
 
-Run the app from [`demo-app/`](../demo-app/) with Docker or a virtualenv **without** setting **`DATABASE_URL`**. The code uses **`DB_HOST`**, **`DB_PORT`**, **`DB_NAME`**, **`DB_USER`**, **`DB_PASSWORD`** (defaults: **`localhost`**, **`5432`**, **`app`**, **`app`**, **`app`**) to build a libpq-style connection string. Point those at a local or test Postgres instance.
+Run from [`demo-app/`](../demo-app/) with Docker or **`go run ./cmd/demo-api`** **without** setting **`DATABASE_URL`**. The binary uses **`DB_*`** defaults above. **`LISTEN_ADDR`** defaults to **`:8080`**.
 
 ## Related documentation
 

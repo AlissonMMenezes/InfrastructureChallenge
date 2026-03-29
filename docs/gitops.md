@@ -67,7 +67,7 @@ See **`gitops/README.md`** in the repo for directory conventions, bootstrap assu
 
 ## Demo app: PostgreSQL (CNPG)
 
-The **dev** overlay patches the CloudNativePG **`Cluster/demo-app-db`** to **`spec.instances: 3`**. When the **`Cluster`** is ready, CNPG creates **`Secret/demo-app-db-app`** in **`app-dev`** (application user); **`Deployment/demo-api`** sets **`DATABASE_URL`** from key **`uri`** (PostgreSQL connection string). Local **`docker run`** / tests can still use separate **`DB_*`** env vars in **`demo-app/src/main.py`** when **`DATABASE_URL`** is unset.
+The **dev** overlay patches the CloudNativePG **`Cluster/demo-app-db`** to **`spec.instances: 3`**. When the **`Cluster`** is ready, CNPG creates **`Secret/demo-app-db-app`** in **`app-dev`** (application user); **`Deployment/demo-api`** sets **`DATABASE_URL`** from key **`uri`** (PostgreSQL connection string). Local **`docker run`** / tests can still use separate **`DB_*`** env vars in the **`demo-app`** binary when **`DATABASE_URL`** is unset.
 
 For a full walkthrough (APIs, connection flow, network policy, local dev), see **[Demo app](demo-app.md)**.
 

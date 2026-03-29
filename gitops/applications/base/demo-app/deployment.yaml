@@ -16,7 +16,7 @@ spec:
       serviceAccountName: demo-api
       containers:
         - name: demo-api
-          # CI publishes :latest and 0.1.<run> (see .github/workflows/demo-app-image.yml). Needs DATABASE_URL support in main.py.
+          # CI publishes :latest and 0.1.<run> (see .github/workflows/demo-app-image.yml). Reads DATABASE_URL (demo-app: cmd/demo-api, internal/*).
           image: ghcr.io/alissonmmenezes/demo-app:latest
           env:
             - name: DATABASE_URL

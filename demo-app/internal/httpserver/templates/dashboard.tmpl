@@ -1,0 +1,50 @@
+{{define "content"}}
+    <h1>Demo API</h1>
+    <p class="sub">This UI exists only to prove the stack: app ↔ PostgreSQL (CloudNativePG) in <code>app-dev</code>.</p>
+
+    <div class="card">
+      <h2>Database</h2>
+      {{if .DBOK}}
+      <div class="status"><span class="dot ok"></span> Connected to PostgreSQL</div>
+      {{else}}
+      <div class="status"><span class="dot bad"></span> Not connected</div>
+      <p class="sub" style="margin:0.5rem 0 0"><code>{{.DBErr}}</code></p>
+      {{end}}
+    </div>
+
+    <div class="card">
+      <h2>Tables in <code>public</code></h2>
+      {{if .Tables}}
+      <table>
+        <thead><tr><th>Table name</th></tr></thead>
+        <tbody>
+          {{range .Tables}}
+          <tr><td><code>{{.}}</code></td></tr>
+          {{end}}
+        </tbody>
+      </table>
+      {{else}}
+      <p class="empty">No user tables in schema <code>public</code>.</p>
+      {{end}}
+    </div>
+
+    <div class="card">
+      <h2>Sample data — <code>items</code></h2>
+      {{if .Items}}
+      <table>
+        <thead><tr><th>id</th><th>name</th></tr></thead>
+        <tbody>
+          {{range .Items}}
+          <tr><td>{{.ID}}</td><td>{{.Name}}</td></tr>
+          {{end}}
+        </tbody>
+      </table>
+      {{else}}
+      <p class="empty">No rows in <code>items</code> yet.</p>
+      {{end}}
+      <form method="post" action="/demo/item" autocomplete="off">
+        <input type="text" name="name" placeholder="New item name" maxlength="200" required aria-label="Item name"/>
+        <button type="submit">Add row</button>
+      </form>
+    </div>
+{{end}}
