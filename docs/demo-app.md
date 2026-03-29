@@ -12,11 +12,16 @@ The app exposes:
 
 | Path | Purpose |
 |------|---------|
+| **`GET /`** | **HTML dashboard** — “demo only” banner, PostgreSQL connection status, list of **`public`** tables (from **`information_schema`**), and the **`items`** sample table with a small form to insert rows. |
+| **`POST /demo/item`** | Form handler for the dashboard (adds a row to **`items`**, redirects to **`/`**). |
 | **`GET /healthz`** | Liveness/readiness-style check (`{"status": "ok"}`). |
-| **`GET /items`**, **`POST /items`** | Minimal CRUD over a small **`items`** table. |
+| **`GET /items`**, **`POST /items`** | JSON API — minimal CRUD over **`items`**. |
+| **`GET /api/docs`** | Swagger UI (OpenAPI moved under **`/api`** so **`/`** is the UI). |
 | **`GET /metrics`** | Prometheus metrics (via `prometheus-fastapi-instrumentator`). |
 
 On startup it runs **`CREATE TABLE IF NOT EXISTS items`** so an empty database becomes usable without manual migration.
+
+**Backups:** **`demo-app-db`** is configured for **S3 / Hetzner Object Storage** (bucket **`dev-test-cnpg-backups`**, prefix **`demo-app-db/`**) with a **`ScheduledBackup`** every **5 minutes** (dev-oriented). Create **`Secret/cnpg-s3-credentials`** in **`app-dev`** — see **[CNPG backup secrets](cnpg-backup-secrets.md)** and **[`gitops/infrastructure/postgres/BACKUP.md`](../gitops/infrastructure/postgres/BACKUP.md)**.
 
 ## How it connects to PostgreSQL
 

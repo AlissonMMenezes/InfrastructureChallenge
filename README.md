@@ -14,6 +14,8 @@ Technical runbooks and how-tos live under **`docs/`**:
 - **[Ansible](docs/ansible.md)** — bootstrap Kubernetes and Flux  
 - **[GitOps (Flux)](docs/gitops.md)** — sync model, **operators vs infrastructure vs applications**  
 - **[Demo app](docs/demo-app.md)** — **`demo-api`**, Postgres connection via CNPG **`Secret`**, networking  
+- **[CNPG backup secrets](docs/cnpg-backup-secrets.md)** — S3 credentials **`Secret`** for Postgres backups to Hetzner Object Storage  
+- **[PostgreSQL upgrade strategy](docs/postgres-upgrade-strategy.md)** — CloudNativePG operator and Postgres version/config upgrades  
 - **[Architecture](docs/architecture.md)** — network topology and cluster design  
 - **[Repository structure](docs/repository-structure.md)** — what each top-level folder is for  
 
@@ -60,7 +62,7 @@ Details: [`docs/security.md`](docs/security.md).
     - [X] 3 PostgreSQL instances
     - [X] Persistent volumes
     - [X] Failover configuration
-  - [ ] Configure Automated Backups
+  - [X] Configure Automated Backups
   - [X] Traefik installing as Ingress
 
 #### 22.03.2026 - Monitoring Setup

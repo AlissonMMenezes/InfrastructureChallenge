@@ -1,0 +1,13 @@
+# Base backup for demo-app-db → same bucket/prefix as Cluster.spec.backup (see infrastructure/postgres/BACKUP.md).
+# Every 5 minutes (6-field cron); tighten for production.
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: demo-app-db-daily
+  namespace: app-dev
+spec:
+  schedule: "0 */5 * * * *"
+  backupOwnerReference: self
+  cluster:
+    name: demo-app-db
+  method: barmanObjectStore

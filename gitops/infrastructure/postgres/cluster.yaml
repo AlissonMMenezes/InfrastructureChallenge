@@ -1,5 +1,6 @@
 # CloudNative-PG Cluster: 3-instance PostgreSQL (HA + quorum).
 # Requires the cloudnative-pg operator (HelmRelease in gitops/operators/cloudnative-pg).
+# S3 backup: create Secret cnpg-s3-credentials in namespace postgres (see BACKUP.md).
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:
@@ -18,6 +19,23 @@ spec:
 
   storage:
     size: 10Gi
+
+  backup:
+    retentionPolicy: "30d"
+    barmanObjectStore:
+      destinationPath: s3://dev-test-cnpg-backups/dev-postgres/
+      endpointURL: https://fsn1.your-objectstorage.com
+      s3Credentials:
+        accessKeyId:
+          name: cnpg-s3-credentials
+          key: ACCESS_KEY_ID
+        secretAccessKey:
+          name: cnpg-s3-credentials
+          key: ACCESS_SECRET_KEY
+      wal:
+        compression: gzip
+      data:
+        compression: gzip
 
   bootstrap:
     initdb:

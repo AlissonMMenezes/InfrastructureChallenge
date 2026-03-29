@@ -1,0 +1,13 @@
+# Base backup to the Cluster’s barmanObjectStore (S3). Requires Secret cnpg-s3-credentials.
+# Schedule: 6-field cron (sec min hour dom month dow) — every 5 minutes (demo / dev only; use a sane cadence in production).
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: dev-postgres-daily
+  namespace: postgres
+spec:
+  schedule: "0 */5 * * * *"
+  backupOwnerReference: self
+  cluster:
+    name: dev-postgres
+  method: barmanObjectStore

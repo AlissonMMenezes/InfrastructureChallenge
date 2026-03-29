@@ -12,6 +12,8 @@ Technical guides for this repository. **Project delivery plan, team structure, a
 | [Repository structure](repository-structure.md) | What each top-level directory is for |
 | [Architecture](architecture.md) | Network topology, cluster design, GitOps flow |
 | [Operations](operations.md) | Backups, restore, monitoring, upgrades |
+| [PostgreSQL upgrade strategy](postgres-upgrade-strategy.md) | CloudNativePG operator + PostgreSQL version/config upgrades (GitOps) |
+| [CNPG backup secrets (S3)](cnpg-backup-secrets.md) | Create **`cnpg-s3-credentials`** for CloudNativePG → Hetzner Object Storage |
 | [Security](security.md) | Security posture and controls |
 | [Leadership](leadership.md) | Delivery / leadership notes |
 

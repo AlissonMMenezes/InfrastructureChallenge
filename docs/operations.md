@@ -4,11 +4,23 @@ For provisioning and GitOps bootstrap order, see **[Getting started](getting-sta
 
 ## Backup strategy
 
-- CloudNativePG `ScheduledBackup` runs periodic backups.
-- Destination: S3-compatible object storage (`s3://cnpg-backups/<env>`).
-- Recommended schedule:
-  - Full/base backup daily
-  - WAL archival continuous
+- **CloudNativePG** clusters **`dev-postgres`** (`postgres`) and **`demo-app-db`** (`app-dev`) use **`spec.backup.barmanObjectStore`** toward **Hetzner Object Storage** bucket **`dev-test-cnpg-backups`**, with prefixes **`dev-postgres/`** and **`demo-app-db/`** (endpoint **`https://fsn1.your-objectstorage.com`** in Git; align with your Terraform region).
+- **`ScheduledBackup`** resources run a base backup **every 5 minutes** (dev/demo cadence); WAL archiving is continuous while the cluster is healthy.
+- Create namespace **`Secret/cnpg-s3-credentials`** (keys **`ACCESS_KEY_ID`**, **`ACCESS_SECRET_KEY`**) in **`postgres`** and **`app-dev`** — see **[CNPG backup secrets](cnpg-backup-secrets.md)** and **[`gitops/infrastructure/postgres/BACKUP.md`](../gitops/infrastructure/postgres/BACKUP.md)** (secrets are not committed to Git).
+
+**Create the backup Secret (snippet):**
+
+```bash
+kubectl create secret generic cnpg-s3-credentials -n postgres \
+  --from-literal=ACCESS_KEY_ID='YOUR_HETZNER_S3_ACCESS_KEY' \
+  --from-literal=ACCESS_SECRET_KEY='YOUR_HETZNER_S3_SECRET_KEY'
+
+kubectl create secret generic cnpg-s3-credentials -n app-dev \
+  --from-literal=ACCESS_KEY_ID='YOUR_HETZNER_S3_ACCESS_KEY' \
+  --from-literal=ACCESS_SECRET_KEY='YOUR_HETZNER_S3_SECRET_KEY'
+```
+
+If the Secret already exists, run **`kubectl delete secret cnpg-s3-credentials -n <namespace>`** first, then create again. Full steps (Hetzner console, rotation, verification) are in **[CNPG backup secrets](cnpg-backup-secrets.md)**.
 
 ## Restore procedure (high level)
 
@@ -17,6 +29,10 @@ For provisioning and GitOps bootstrap order, see **[Getting started](getting-sta
 3. Verify data consistency checks.
 4. Switch service endpoint or update app secret/connection details.
 5. Resume traffic.
+
+## PostgreSQL upgrades (CloudNativePG)
+
+Operator bumps, PostgreSQL image (minor/major), and parameter changes are documented in **[PostgreSQL upgrade strategy](postgres-upgrade-strategy.md)** (GitOps-oriented checklist and links to CNPG docs).
 
 ## Monitoring
 
