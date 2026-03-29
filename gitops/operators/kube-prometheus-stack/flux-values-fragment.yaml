@@ -285,6 +285,22 @@ grafana:
           editable: false
           options:
             path: /var/lib/grafana/dashboards/flux
+        - name: cnpg
+          orgId: 1
+          folder: PostgreSQL
+          type: file
+          disableDeletion: false
+          editable: false
+          options:
+            path: /var/lib/grafana/dashboards/cnpg
+        - name: openbao
+          orgId: 1
+          folder: OpenBao
+          type: file
+          disableDeletion: false
+          editable: false
+          options:
+            path: /var/lib/grafana/dashboards/openbao
   dashboards:
     flux:
       flux-cluster:
@@ -292,4 +308,18 @@ grafana:
         datasource: Prometheus
       flux-control-plane:
         url: https://raw.githubusercontent.com/fluxcd/flux2-monitoring-example/main/monitoring/configs/dashboards/control-plane.json
+        datasource: Prometheus
+    # CloudNativePG metrics (:9187) — Cluster.spec.monitoring.enablePodMonitor creates PodMonitors; Prometheus scrapes via podMonitorSelectorNilUsesHelmValues: false.
+    # https://grafana.com/grafana/dashboards/20417-cloudnativepg/
+    cnpg:
+      cloudnativepg-cluster:
+        gnetId: 20417
+        revision: 1
+        datasource: Prometheus
+    # OpenBao exposes Vault-compatible Prometheus metrics (vault_*); chart ServiceMonitor scrapes :8200/v1/sys/metrics.
+    # https://grafana.com/grafana/dashboards/7700-vaults/
+    openbao:
+      vault-overview:
+        gnetId: 7700
+        revision: 1
         datasource: Prometheus

@@ -87,9 +87,9 @@ The **dev** overlay patches the CloudNativePG **`Cluster/demo-app-db`** to **`sp
 | Artifact | Role |
 |----------|------|
 | **`external-secrets-openbao.hcl`** | Policy **`external-secrets-openbao`** (KV v2 under **`secret/data/demo-app/*`** and **`secret/metadata/demo-app/*`**) — versioned in Git. |
-| **`bootstrap.sh`** | Enables **`secret`** KV v2 (if needed), **`auth enable kubernetes`**, writes **`auth/kubernetes/config`**, applies the policy, creates role **`external-secrets`**. |
-| **Job** **`openbao-kubernetes-auth-bootstrap`** | Runs the script as **`ServiceAccount/openbao`**; reads **`Secret/openbao-bootstrap`** key **`root-token`** (you create this; never commit it). |
-| **RBAC** | Lets **`ServiceAccount/openbao`** **`get`** **`Secret/openbao-bootstrap`**. |
+| **`bootstrap.sh`** | Enables **`secret`** KV v2 (if needed), **`auth enable kubernetes`** (if not already in server config), writes full **`auth/kubernetes/config`** (host + CA + token reviewer), applies the policy, creates roles **`external-secrets`** and **`default`** (wildcard SA/NS; tighten for production). |
+| **Job** **`openbao-kubernetes-auth-bootstrap`** | Runs the script as **`ServiceAccount/openbao`**; root token from **`BAO_ROOT_TOKEN`** (**`secretKeyRef`**, optional) and/or mounted **`Secret/openbao-bootstrap`** key **`root-token`** (you create this; never commit it). **`restartPolicy: OnFailure`**. |
+| **RBAC** | **`ClusterRoleBinding/openbao-auth-delegator`** → **`system:auth-delegator`** (TokenReview for **`auth/kubernetes`**; chart may also create **`openbao-server-binding`**). **`Role`** + **`RoleBinding`** so **`ServiceAccount/openbao`** can **`get`** **`Secret/openbao-bootstrap`**. |
 
 **Operator steps (once per cluster / after init + unseal):**
 

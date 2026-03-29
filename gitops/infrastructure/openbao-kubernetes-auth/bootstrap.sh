@@ -1,17 +1,21 @@
 #!/bin/sh
 # Configures OpenBao auth/kubernetes for in-cluster JWTs (External Secrets PushSecret + ExternalSecret).
 # Runs as the OpenBao server ServiceAccount so token_reviewer_jwt satisfies TokenReview (chart authDelegator CRB).
+# Root token: prefer BAO_ROOT_TOKEN (env / secretKeyRef, same pattern as `bao login $BAO_ROOT_TOKEN`), else file TOKEN_FILE.
 set -eu
 
 BAO_ADDR="${BAO_ADDR:-http://openbao.openbao-system.svc.cluster.local:8200}"
 TOKEN_FILE="${TOKEN_FILE:-/bootstrap/root-token}"
 
-if [ ! -s "$TOKEN_FILE" ]; then
-  echo "SKIP: no root token at $TOKEN_FILE. Create Secret openbao-bootstrap (key root-token) in openbao-system, then delete Job openbao-kubernetes-auth-bootstrap so Flux recreates it."
+if [ -n "${BAO_ROOT_TOKEN:-}" ]; then
+  BAO_TOKEN="$(printf '%s' "$BAO_ROOT_TOKEN" | tr -d '\n\r')"
+elif [ -s "$TOKEN_FILE" ]; then
+  BAO_TOKEN="$(tr -d '\n\r' <"$TOKEN_FILE")"
+else
+  echo "SKIP: set BAO_ROOT_TOKEN or mount Secret openbao-bootstrap (key root-token) at $TOKEN_FILE, then delete Job openbao-kubernetes-auth-bootstrap so Flux recreates it."
   exit 0
 fi
 
-BAO_TOKEN="$(tr -d '\n\r' <"$TOKEN_FILE")"
 export BAO_ADDR BAO_TOKEN
 
 echo "Waiting for OpenBao at $BAO_ADDR ..."
@@ -57,4 +61,11 @@ bao write auth/kubernetes/role/external-secrets \
   ttl=1h \
   max_ttl=24h
 
-echo "OpenBao Kubernetes auth ready: mount kubernetes, role external-secrets, policy external-secrets-openbao."
+# Broad “example” role (built-in policy default) — tighten bound_service_account_* for production.
+bao write auth/kubernetes/role/default \
+  bound_service_account_names="*" \
+  bound_service_account_namespaces="*" \
+  policies=default \
+  ttl=1h
+
+echo "OpenBao Kubernetes auth ready: mount kubernetes, roles default + external-secrets, policy external-secrets-openbao."

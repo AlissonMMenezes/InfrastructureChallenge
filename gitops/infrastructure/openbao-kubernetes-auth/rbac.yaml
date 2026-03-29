@@ -1,4 +1,23 @@
-# Allow the OpenBao server ServiceAccount (Helm release name "openbao") to read the one-time bootstrap Secret.
+# ServiceAccount "openbao" in namespace openbao-system is created by the OpenBao Helm chart (gitops/operators/openbao).
+# Do not define a duplicate ServiceAccount here.
+
+# TokenReview for auth/kubernetes: bind system:auth-delegator to the server ServiceAccount (same as upstream examples).
+# The chart also creates ClusterRoleBinding <release>-server-binding when server.route.authDelegator.enabled is true;
+# keeping both is redundant but harmless; you may disable the chart flag and rely on this binding only.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: openbao-auth-delegator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: system:auth-delegator
+subjects:
+  - kind: ServiceAccount
+    name: openbao
+    namespace: openbao-system
+---
+# Allow the OpenBao server ServiceAccount to read the one-time bootstrap Secret (env secretKeyRef + optional volume).
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:

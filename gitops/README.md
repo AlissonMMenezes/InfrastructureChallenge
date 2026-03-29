@@ -17,7 +17,7 @@ This tree is intended for **Flux v2** (`flux bootstrap github` / `flux install` 
 | **`operators/postgres/`** (legacy / prod samples) | Older layout in some branches; **dev** uses **`operators/cloudnative-pg`**. |
 | **`applications/base/`**, **`applications/environments/<env>/`** | **Kustomize** bases and overlays (e.g. demo app: **`base/demo-app/`**, dev patch **`environments/dev/demo-app/`**). Flux **`applications`** `Kustomization` points at **`environments/dev/`** for the dev cluster. |
 | **`infrastructure/cert-manager-issuers/`** | **`ClusterIssuer`** for **Let’s Encrypt** (HTTP-01, Traefik ingress class). |
-| **`infrastructure/openbao-kubernetes-auth/`** | **Job** + RBAC: configures OpenBao **`auth/kubernetes`**, policy, and role **`external-secrets`** for **ESO** (after **`Secret/openbao-bootstrap`** with **`root-token`**; see **`docs/gitops.md`**). |
+| **`infrastructure/openbao-kubernetes-auth/`** | **Job** + RBAC: configures OpenBao **`auth/kubernetes`**, policy, roles **`external-secrets`** + **`default`**, for **ESO** (after **`Secret/openbao-bootstrap`** with **`root-token`**; see **`docs/gitops.md`**). |
 | **`infrastructure/openbao-ingress/`** | **`Ingress`** exposing OpenBao on a public hostname (TLS via cert-manager). |
 
 ## Bootstrap assumptions

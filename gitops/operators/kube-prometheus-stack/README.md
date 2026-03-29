@@ -15,6 +15,20 @@ Installs [kube-prometheus-stack](https://github.com/prometheus-community/helm-ch
 
 Default chart **ServiceMonitors** include kube-apiserver, kubelet/cAdvisor, coreDNS, kube-state-metrics, node-exporter, operator components, etc. Some control-plane components (etcd, scheduler) may need extra endpoints on non-standard clusters.
 
+## CloudNativePG (PostgreSQL)
+
+**`Cluster`** manifests (**`gitops/infrastructure/postgres/`**, **`gitops/applications/base/demo-app/postgres-cluster.yaml`**) set **`spec.monitoring.enablePodMonitor: true`**. The CNPG operator creates **`PodMonitor`** resources that scrape **`metrics`** on port **9187**.
+
+**Prometheus** (**`helmrelease.yaml`**) uses **`podMonitorSelectorNilUsesHelmValues: false`** (and default empty namespace selector), so those **PodMonitors** in **`postgres`**, **`app-dev`**, etc. are discovered without extra labels.
+
+**Grafana:** **`flux-values-fragment.yaml`** provisions the community **[CloudNativePG dashboard](https://grafana.com/grafana/dashboards/20417-cloudnativepg/)** (Grafana.com ID **20417**) under folder **PostgreSQL**. After reconcile, open Grafana → **PostgreSQL** → **CloudNativePG**.
+
+## OpenBao
+
+**`HelmRelease`** **`gitops/operators/openbao/helmrelease.yaml`** enables **Prometheus** telemetry in the server config and **`serverTelemetry.serviceMonitor.enabled: true`**, so the chart creates a **`ServiceMonitor`** that scrapes **`/v1/sys/metrics`** on port **8200** (Vault-compatible **`vault_*`** series).
+
+**Grafana:** **`flux-values-fragment.yaml`** imports the community **[Vaults](https://grafana.com/grafana/dashboards/7700-vaults/)** dashboard (Grafana.com ID **7700**) into folder **OpenBao** — metric names match Vault/OpenBao’s Prometheus export.
+
 ## Access
 
 - **Grafana**: port-forward or expose via Ingress — retrieve admin password:  

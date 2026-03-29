@@ -37,6 +37,10 @@ spec:
       enabled: true
     server:
       enabled: true
+      # Used by auth/kubernetes (TokenReview + bootstrap script kubernetes_host URL). Pods usually get these from the cluster; set explicitly for consistent in-cluster API access.
+      extraEnvironmentVars:
+        KUBERNETES_SERVICE_HOST: kubernetes.default.svc
+        KUBERNETES_SERVICE_PORT: "443"
       # Binds system:auth-delegator to the server ServiceAccount (required for auth/kubernetes TokenReview).
       # Values path follows chart layout (under OpenShift route block). https://openbao.org/docs/auth/kubernetes
       route:
@@ -53,9 +57,22 @@ spec:
             tls_disable = 1
             address = "[::]:8200"
             cluster_address = "[::]:8201"
+            telemetry {
+              unauthenticated_metrics_access = "true"
+            }
           }
           storage "file" {
             path = "/openbao/data"
+          }
+
+          # Mount Kubernetes auth at auth/kubernetes/ (same as `bao auth enable kubernetes`). Bootstrap job skips enable if already present.
+          auth "kubernetes" {
+            path = "kubernetes"
+          }
+
+          telemetry {
+            prometheus_retention_time = "30s"
+            disable_hostname = true
           }
       ha:
         enabled: false
@@ -78,3 +95,8 @@ spec:
         limits:
           memory: 512Mi
           cpu: "1"
+    # Prometheus Operator ServiceMonitor — requires kube-prometheus-stack (operators) applied before this release.
+    # https://openbao.org/docs/configuration/telemetry/
+    serverTelemetry:
+      serviceMonitor:
+        enabled: true
