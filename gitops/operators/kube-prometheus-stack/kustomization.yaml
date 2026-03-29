@@ -11,5 +11,4 @@ resources:
   # Namespace must exist before HelmRelease (metadata.namespace: monitoring).
   - namespace.yaml
   - helmrepository.yaml
-  - flux-podmonitor.yaml
   - helmrelease.yaml

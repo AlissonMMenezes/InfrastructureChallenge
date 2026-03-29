@@ -16,7 +16,7 @@ spec:
       serviceAccountName: openbao
       containers:
         - name: bootstrap
-          image: quay.io/openbao/openbao:v2.5.2
+          image: quay.io/openbao/openbao:2.5.2
           imagePullPolicy: IfNotPresent
           env:
             - name: BAO_ADDR

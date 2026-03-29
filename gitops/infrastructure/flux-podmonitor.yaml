@@ -1,4 +1,5 @@
-# Scrape Flux controller pods (port http-prom). Prometheus selects PodMonitors cluster-wide.
+# Scrape Flux controller pods (port http-prom). Applied with *infrastructure* so
+# monitoring.coreos.com CRDs exist (installed by kube-prometheus-stack in *operators*).
 # See https://fluxcd.io/flux/monitoring/metrics/
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
