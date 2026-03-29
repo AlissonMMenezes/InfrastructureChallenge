@@ -1,14 +1,12 @@
 # Repository structure
 
-Top-level directories:
-
 | Path | Purpose |
 |------|---------|
-| **`terraform/`** | Modular Hetzner (and shared) provisioning; **`environments/dev`** and **`environments/prod`** compose modules. Includes **`modules/object-storage`** (S3 bucket on Hetzner Object Storage via MinIO provider) for backups. |
-| **`ansible/`** | Idempotent roles and playbooks: host baseline, security, **kubeadm** Kubernetes, optional **Flux** install. |
-| **`gitops/`** | Flux manifests: **`clusters/<env>/`** entrypoints, **`operators/`**, **`infrastructure/`**, **`applications/`**. |
-| **`demo-app/`** | Sample containerised API (build via CI / local Docker; image referenced from GitOps). |
-| **`.github/workflows/`** | CI (e.g. **`demo-app-image.yml`** — build/push to **GHCR** with **lowercase** image path). |
-| **`docs/`** | Architecture, runbooks, security, and how-to guides (this folder). |
+| `terraform/` | Hetzner modules + `environments/{dev,prod}` |
+| `ansible/` | Playbooks and roles (kubeadm, Flux) |
+| `gitops/` | Flux: `clusters/<env>/`, `operators/`, `infrastructure/`, `applications/` |
+| `demo-app/` | Sample API (CI → GHCR) |
+| `.github/workflows/` | e.g. demo-app image build |
+| `docs/` | This documentation set |
 
-Deeper GitOps layout: [`../gitops/README.md`](../gitops/README.md).
+GitOps detail: **`gitops/README.md`**.
