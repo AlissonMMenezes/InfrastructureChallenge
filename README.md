@@ -13,6 +13,7 @@ Technical runbooks and how-tos live under **`docs/`**:
 - **[Terraform](docs/terraform.md)** — provision VMs and networking  
 - **[Ansible](docs/ansible.md)** — bootstrap Kubernetes and Flux  
 - **[GitOps (Flux)](docs/gitops.md)** — sync model, **operators vs infrastructure vs applications**  
+- **[Demo app](docs/demo-app.md)** — **`demo-api`**, Postgres connection via CNPG **`Secret`**, networking  
 - **[Architecture](docs/architecture.md)** — network topology and cluster design  
 - **[Repository structure](docs/repository-structure.md)** — what each top-level folder is for  
 
@@ -29,7 +30,7 @@ Also: [`ansible/README.md`](ansible/README.md), [`gitops/README.md`](gitops/READ
 
 - Least-privilege RBAC for workloads and service accounts.
 - Namespace isolation and default-deny-oriented network policies where defined in GitOps.
-- Secrets: **OpenBao** + **External Secrets Operator** for the demo app (PushSecret / ExternalSecret); other workloads can use SOPS or cloud backends via ESO.
+- Secrets: **OpenBao** + **External Secrets Operator** where configured; **demo-api** reads **`DATABASE_URL`** from CNPG’s **`Secret/demo-app-db-app`**; other workloads can use SOPS or cloud backends via ESO.
 - Hardened node baseline via Ansible (SSH, firewall, fail2ban).
 
 Details: [`docs/security.md`](docs/security.md).

@@ -65,18 +65,15 @@ flux reconcile kustomization infrastructure -n flux-system --with-source
 
 See **`gitops/README.md`** in the repo for directory conventions, bootstrap assumptions, and path rules.
 
-## Demo app: PostgreSQL (CNPG), OpenBao, and External Secrets Operator
+## Demo app: PostgreSQL (CNPG)
 
-The **dev** overlay patches the CloudNativePG **`Cluster/demo-app-db`** to **`spec.instances: 3`**. **External Secrets Operator** (installed from **`gitops/operators/external-secrets/`**) drives two flows without custom scripts:
+The **dev** overlay patches the CloudNativePG **`Cluster/demo-app-db`** to **`spec.instances: 3`**. When the **`Cluster`** is ready, CNPG creates **`Secret/demo-app-db-app`** in **`app-dev`** (application user); **`Deployment/demo-api`** sets **`DATABASE_URL`** from key **`uri`** (PostgreSQL connection string). Local **`docker run`** / tests can still use separate **`DB_*`** env vars in **`demo-app/src/main.py`** when **`DATABASE_URL`** is unset.
 
-1. **`PushSecret/cnpg-demo-app-to-openbao`** (namespace **`app-dev`**) copies CNPG’s **`Secret/demo-app-db-app`** into OpenBao KV v2 at **`secret/demo-app/postgres`** (maps **`hostname` → `host`**, **`uri` → `connection_string`**, plus **`username`**, **`password`**, **`port`**, **`dbname`**).
-2. **`ExternalSecret/demo-app-postgres`** materializes the same path into Kubernetes **`Secret/demo-app-postgres`** with keys **`DB_*`** for **`demo-api`** (`envFrom`).
+For a full walkthrough (APIs, connection flow, network policy, local dev), see **[Demo app](demo-app.md)**.
 
-**`ClusterSecretStore/openbao`** uses the Vault-compatible provider against **`http://openbao.openbao-system.svc.cluster.local:8200`** and **Kubernetes auth** with **`ServiceAccount/external-secrets`** in **`external-secrets`**.
+## OpenBao Kubernetes auth bootstrap
 
-### OpenBao Kubernetes auth bootstrap
-
-**Goal:** OpenBao must serve **`auth/kubernetes`** (with **`auth/kubernetes/config`** pointing at the cluster API), a **policy** for KV paths under **`demo-app`**, and a **role** **`external-secrets`** bound to **`ServiceAccount/external-secrets`** in **`external-secrets`**. The **`ClusterSecretStore`** manifest (**`gitops/applications/base/demo-app/clustersecretstore-openbao.yaml`**) already requests **Kubernetes auth** at mount **`kubernetes`** and **`role: external-secrets`**; the server-side wiring is applied by GitOps plus a one-time **root token** Secret.
+**Goal:** OpenBao must serve **`auth/kubernetes`** (with **`auth/kubernetes/config`** pointing at the cluster API), a **policy** for KV paths (e.g. under **`demo-app`** in **`external-secrets-openbao.hcl`**), and a **role** **`external-secrets`** bound to **`ServiceAccount/external-secrets`** in **`external-secrets`**. Workloads that use **External Secrets Operator** with the Vault-compatible provider need a **`ClusterSecretStore`** pointing at OpenBao; the demo app GitOps base does not ship one. Server-side wiring is applied by GitOps plus a one-time **root token** Secret.
 
 **Prerequisite:** initialize and unseal OpenBao — see **[Operations → OpenBao initialize and unseal](operations.md#openbao-initialize-and-unseal)**.
 
@@ -87,20 +84,22 @@ The **dev** overlay patches the CloudNativePG **`Cluster/demo-app-db`** to **`sp
 | Artifact | Role |
 |----------|------|
 | **`external-secrets-openbao.hcl`** | Policy **`external-secrets-openbao`** (KV v2 under **`secret/data/demo-app/*`** and **`secret/metadata/demo-app/*`**) — versioned in Git. |
+| **`init-store-keys.sh`** | First boot: **`bao operator init`**, **unseal**, **`kubectl apply`** **`Secret/openbao-bootstrap`** (**`root-token`**, **`unseal-keys`**). Idempotent if already initialized + Secret present. |
+| **Job** **`openbao-init-store-keys`** | Runs that script as **`ServiceAccount/openbao-init`**; **`initContainer`** copies **`kubectl`** (Bitnami image) into **`PATH`**. |
 | **`bootstrap.sh`** | Enables **`secret`** KV v2 (if needed), **`auth enable kubernetes`** (if not already in server config), writes full **`auth/kubernetes/config`** (host + CA + token reviewer), applies the policy, creates roles **`external-secrets`** and **`default`** (wildcard SA/NS; tighten for production). |
-| **Job** **`openbao-kubernetes-auth-bootstrap`** | Runs the script as **`ServiceAccount/openbao`**; root token from **`BAO_ROOT_TOKEN`** (**`secretKeyRef`**, optional) and/or mounted **`Secret/openbao-bootstrap`** key **`root-token`** (you create this; never commit it). **`restartPolicy: OnFailure`**. |
-| **RBAC** | **`ClusterRoleBinding/openbao-auth-delegator`** → **`system:auth-delegator`** (TokenReview for **`auth/kubernetes`**; chart may also create **`openbao-server-binding`**). **`Role`** + **`RoleBinding`** so **`ServiceAccount/openbao`** can **`get`** **`Secret/openbao-bootstrap`**. |
+| **Job** **`openbao-kubernetes-auth-bootstrap`** | **`initContainer`** waits for **`Secret/openbao-bootstrap`**; main runs as **`ServiceAccount/openbao`**; root token from **`BAO_ROOT_TOKEN`** / mounted **`root-token`**. |
+| **RBAC** | **`ClusterRoleBinding/openbao-auth-delegator`**; **`ServiceAccount/openbao-init`** + **`Role`** to **`create`**/**`get`**/**`patch`** **`Secret/openbao-bootstrap`**; **`Role`** for **`ServiceAccount/openbao`** to **`get`** that Secret. |
 
-**Operator steps (once per cluster / after init + unseal):**
+**Operator steps (once per cluster):**
 
-1. **Create the bootstrap Secret** (never commit the root token to Git):
+1. **First boot:** **`Job/openbao-init-store-keys`** should create **`Secret/openbao-bootstrap`**. If you initialized OpenBao manually instead, create the Secret yourself (never commit tokens to Git):
 
    ```bash
    kubectl create secret generic openbao-bootstrap -n openbao-system \
      --from-literal=root-token='YOUR_ROOT_TOKEN'
    ```
 
-2. **If the Job already completed** without configuring auth (missing Secret, OpenBao still sealed, etc.), delete it so it runs again:
+2. **If the auth bootstrap Job already completed** without configuring auth (missing Secret, OpenBao still sealed, etc.), delete it so it runs again:
 
    ```bash
    kubectl delete job -n openbao-system openbao-kubernetes-auth-bootstrap
@@ -108,11 +107,7 @@ The **dev** overlay patches the CloudNativePG **`Cluster/demo-app-db`** to **`sp
 
    Flux will recreate the Job on the next **`infrastructure`** reconcile, or run **`flux reconcile kustomization infrastructure -n flux-system --with-source`**.
 
-3. **Verify:** `kubectl logs -n openbao-system job/openbao-kubernetes-auth-bootstrap` should end with **`OpenBao Kubernetes auth ready`**. **`ExternalSecret`** / **`PushSecret`** should leave **`ReplicaFailure`** once OpenBao accepts Kubernetes logins.
-
-Until this succeeds, **`PushSecret`** / **`ExternalSecret`** for the demo app stay degraded; **`demo-api`** needs **`Secret/demo-app-postgres`**.
-
-The OpenBao **injector** is optional for this app; the demo API does not use sidecar injection for DB credentials.
+3. **Verify:** `kubectl logs -n openbao-system job/openbao-kubernetes-auth-bootstrap` should end with **`OpenBao Kubernetes auth ready`**.
 
 ## HTTPS (Let’s Encrypt) and public hostnames
 

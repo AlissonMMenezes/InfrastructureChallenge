@@ -1,4 +1,5 @@
 # Dedicated PostgreSQL for demo-api (CloudNativePG). RW service: demo-app-db-rw.app-dev.svc.cluster.local
+# CNPG creates Secret demo-app-db-app (app user) with uri, username, password, etc. — demo-api uses key uri.
 apiVersion: postgresql.cnpg.io/v1
 kind: Cluster
 metadata:

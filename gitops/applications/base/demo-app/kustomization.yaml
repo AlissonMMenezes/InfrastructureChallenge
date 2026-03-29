@@ -3,10 +3,7 @@ kind: Kustomization
 resources:
   - namespace.yaml
   - serviceaccount.yaml
-  - clustersecretstore-openbao.yaml
   - postgres-cluster.yaml
-  - pushsecret-cnpg-to-openbao.yaml
-  - externalsecret-demo-app-postgres.yaml
   - deployment.yaml
   - service.yaml
   - network-policy.yaml

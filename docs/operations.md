@@ -82,9 +82,11 @@ If **`openbao.alissonmachado.com.br`** ingress is enabled, prefer **strong authe
 
 ### OpenBao initialize and unseal
 
-The Helm chart starts the server, but **does not** run **`bao operator init`** or **`bao operator unseal`**. Until you do, logs show **INFO** lines such as **`security barrier not initialized`** and **`seal configuration missing, not initialized`** — the process is running, but the store is not ready to serve the API.
+The Helm chart starts the server, but **does not** run **`bao operator init`** or **`bao operator unseal`** by itself.
 
-Do this **once per empty data volume**. If you **delete the PVC** or start on new storage, you must **initialize again** (you get new keys; old secrets are gone).
+**GitOps (recommended for first boot):** **`Job/openbao-init-store-keys`** in **`gitops/infrastructure/openbao-kubernetes-auth/`** waits for the API, runs **`bao operator init`** (single unseal key by default), **unseals**, and writes **`Secret/openbao-bootstrap`** with keys **`root-token`** and **`unseal-keys`** (newline-separated shares). The **`openbao-kubernetes-auth-bootstrap`** Job then waits for that Secret before configuring **`auth/kubernetes`**. Treat that Secret as **highly sensitive**; for production prefer **auto-unseal** and do **not** keep unseal material only in etcd.
+
+**Manual path** (or if the init Job failed): do the following **once per empty data volume**. If you **delete the PVC** or start on new storage, you must **initialize again** (you get new keys; old secrets are gone).
 
 1. **Confirm the server pod** (name may differ slightly with your release name; default StatefulSet is often **`openbao-0`**):
 
@@ -125,12 +127,12 @@ Do this **once per empty data volume**. If you **delete the PVC** or start on ne
 
 ### OpenBao Kubernetes auth (External Secrets)
 
-So **External Secrets Operator** can **PushSecret** / **ExternalSecret** against OpenBao using **Kubernetes auth** (same as **`ClusterSecretStore/openbao`** in Git), apply the GitOps bootstrap:
+So **External Secrets Operator** can **PushSecret** / **ExternalSecret** against OpenBao using **Kubernetes auth**, apply the GitOps bootstrap (add your own **`ClusterSecretStore`** manifests if you use ESO with OpenBao):
 
-1. Create **`Secret/openbao-bootstrap`** in **`openbao-system`** with your **root token** (see **[GitOps → OpenBao Kubernetes auth bootstrap](gitops.md#openbao-kubernetes-auth-bootstrap)**).
+1. Ensure **`Job/openbao-init-store-keys`** completed and **`Secret/openbao-bootstrap`** exists (or create that Secret yourself with key **`root-token`** — see **[GitOps → OpenBao Kubernetes auth bootstrap](gitops.md#openbao-kubernetes-auth-bootstrap)**).
 2. Ensure Job **`openbao-kubernetes-auth-bootstrap`** runs successfully (delete the Job to retry if it skipped earlier).
 
-Policy and role names are defined in **`gitops/infrastructure/openbao-kubernetes-auth/`**; only the **root token** is supplied out-of-band.
+Policy and role names are defined in **`gitops/infrastructure/openbao-kubernetes-auth/`**; the **root token** is created by the init Job or supplied out-of-band.
 
 ### OpenBao web UI login
 

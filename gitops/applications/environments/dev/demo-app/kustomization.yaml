@@ -4,9 +4,8 @@ resources:
   - ../../../base/demo-app/
   - image-automation.yaml
 images:
-  - name: ghcr.io/alissonmmenezes/demo-app
-    newName: ghcr.io/alissonmmenezes/demo-app
-    newTag: 0.1.7 # {"$imagepolicy": "flux-system:demo-app"}
+  - name: ghcr.io/alissonmmenezes/demo-app # {"$imagepolicy": "flux-system:demo-app:name"}
+    newTag: 0.1.8 # {"$imagepolicy": "flux-system:demo-app:tag"}
 patches:
   - target:
       group: networking.k8s.io

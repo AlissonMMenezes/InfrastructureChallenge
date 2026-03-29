@@ -16,9 +16,14 @@ spec:
       serviceAccountName: demo-api
       containers:
         - name: demo-api
-          image: ghcr.io/alissonmmenezes/demo-app:0.1.0
-          envFrom:
-            - secretRef:
-                name: demo-app-postgres
+          # CI publishes :latest and 0.1.<run> (see .github/workflows/demo-app-image.yml). Needs DATABASE_URL support in main.py.
+          image: ghcr.io/alissonmmenezes/demo-app:latest
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  # Created by CloudNativePG when Cluster/demo-app-db is ready (same namespace).
+                  name: demo-app-db-app
+                  key: uri
           ports:
             - containerPort: 8080

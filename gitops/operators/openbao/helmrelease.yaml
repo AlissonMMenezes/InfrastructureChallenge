@@ -1,6 +1,6 @@
 # OpenBao on Kubernetes via the official Helm chart (server StatefulSet + optional injector).
 # Docs: https://openbao.org/docs/platform/k8s/helm/
-# After install: initialize and unseal the server (not automated here); tune HA/storage for production.
+# First-time init + storing root token / unseal keys: Job openbao-init-store-keys (gitops/infrastructure/openbao-kubernetes-auth/).
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:

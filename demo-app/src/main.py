@@ -11,6 +11,8 @@ DB_PORT = int(os.getenv("DB_PORT", "5432"))
 DB_NAME = os.getenv("DB_NAME", "app")
 DB_USER = os.getenv("DB_USER", "app")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "app")
+# In-cluster: CloudNativePG Secret <cluster>-app key `uri` (wired as DATABASE_URL in the Deployment).
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 app = FastAPI(title="demo-api")
 Instrumentator().instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
@@ -21,6 +23,8 @@ class Item(BaseModel):
 
 
 def dsn() -> str:
+    if DATABASE_URL:
+        return DATABASE_URL
     return f"host={DB_HOST} port={DB_PORT} dbname={DB_NAME} user={DB_USER} password={DB_PASSWORD}"
 
 

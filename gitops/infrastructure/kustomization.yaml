@@ -3,7 +3,6 @@ kind: Kustomization
 resources:
   - flux-podmonitor.yaml
   - cert-manager-issuers/
-  - openbao-kubernetes-auth/
   - openbao-ingress/
   - postgres/
   - traefik/

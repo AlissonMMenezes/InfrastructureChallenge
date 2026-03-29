@@ -13,11 +13,11 @@ This tree is intended for **Flux v2** (`flux bootstrap github` / `flux install` 
 | **`operators/kube-prometheus-stack/`** | **`prometheus-community`** **`HelmRepository`** + **`kube-prometheus-stack`** (Prometheus, **Grafana** + **Flux** dashboards folder, **PodMonitor** for Flux controllers, KSM **CRS** for **`gotk_resource_info`**, ingress/TLS for Grafana). See **`operators/kube-prometheus-stack/README.md`**. |
 | **`operators/cloudnative-pg/`** | CNPG Helm **`HelmRepository`** + **`HelmRelease`** (operator install). |
 | **`operators/openbao/`** | Official **OpenBao** Helm repo + **`HelmRelease`** in **`openbao-system`** (server + optional **injector**). See [OpenBao K8s docs](https://openbao.org/docs/platform/k8s/helm/). |
-| **`operators/external-secrets/`** | **External Secrets Operator** Helm chart — sync secrets from/to OpenBao (Vault API) and other providers; demo app uses **`PushSecret`** + **`ExternalSecret`**. |
+| **`operators/external-secrets/`** | **External Secrets Operator** Helm chart — sync secrets from external providers (Vault-compatible APIs, cloud backends, etc.). |
 | **`operators/postgres/`** (legacy / prod samples) | Older layout in some branches; **dev** uses **`operators/cloudnative-pg`**. |
 | **`applications/base/`**, **`applications/environments/<env>/`** | **Kustomize** bases and overlays (e.g. demo app: **`base/demo-app/`**, dev patch **`environments/dev/demo-app/`**). Flux **`applications`** `Kustomization` points at **`environments/dev/`** for the dev cluster. |
 | **`infrastructure/cert-manager-issuers/`** | **`ClusterIssuer`** for **Let’s Encrypt** (HTTP-01, Traefik ingress class). |
-| **`infrastructure/openbao-kubernetes-auth/`** | **Job** + RBAC: configures OpenBao **`auth/kubernetes`**, policy, roles **`external-secrets`** + **`default`**, for **ESO** (after **`Secret/openbao-bootstrap`** with **`root-token`**; see **`docs/gitops.md`**). |
+| **`infrastructure/openbao-kubernetes-auth/`** | **Jobs** + RBAC: **`openbao-init-store-keys`** runs **`bao operator init`** and stores **`Secret/openbao-bootstrap`**; **`openbao-kubernetes-auth-bootstrap`** configures **`auth/kubernetes`** for **ESO** (see **`docs/gitops.md`**). |
 | **`infrastructure/openbao-ingress/`** | **`Ingress`** exposing OpenBao on a public hostname (TLS via cert-manager). |
 
 ## Bootstrap assumptions
