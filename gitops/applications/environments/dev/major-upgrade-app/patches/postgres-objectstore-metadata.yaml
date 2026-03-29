@@ -1,10 +1,10 @@
-# JSON6902: bind ObjectStore to demo-app cluster name + namespace + S3 prefix.
+# ObjectStore in major-upgrade-app namespace; distinct S3 prefix from app-dev.
 - op: replace
   path: /metadata/name
   value: demo-app-db-store
 - op: replace
   path: /metadata/namespace
-  value: app-dev
+  value: major-upgrade-app
 - op: replace
   path: /spec/configuration/destinationPath
-  value: s3://dev-test-cnpg-backups/demo-app-db/
+  value: s3://dev-test-cnpg-backups/major-upgrade-app/

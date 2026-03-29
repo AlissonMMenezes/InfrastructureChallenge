@@ -4,14 +4,14 @@ Provisioning order: **[getting-started](getting-started.md)**.
 
 ## Backups (CNPG)
 
-Clusters **`dev-postgres`** (`postgres`) and **`demo-app-db`** (`app-dev`) use bucket **`dev-test-cnpg-backups`** with prefixes **`dev-postgres/`** and **`demo-app-db/`**. Endpoint URLs in Git must match your Hetzner region (e.g. `fsn1`).
+Clusters **`dev-postgres`** (`postgres`) and **`demo-app-db`** use bucket **`dev-test-cnpg-backups`** with prefixes **`dev-postgres/`** and **`major-upgrade-app/`** ( **`major-upgrade-app`** namespace) or **`demo-app-db/`** (**`demo-app`** overlay, **`app-dev`**). Endpoint URLs in Git must match your Hetzner region (e.g. `fsn1`).
 
-Create **`Secret/cnpg-s3-credentials`** (keys **`ACCESS_KEY_ID`**, **`ACCESS_SECRET_KEY`**) in **`postgres`** and **`app-dev`**: **[cnpg-backup-secrets](cnpg-backup-secrets.md)**, **`gitops/infrastructure/postgres/BACKUP.md`**.
+Create **`Secret/cnpg-s3-credentials`** (keys **`ACCESS_KEY_ID`**, **`ACCESS_SECRET_KEY`**) in **`postgres`** and the app namespace (**`major-upgrade-app`** or **`app-dev`**): **[cnpg-backup-secrets](cnpg-backup-secrets.md)**, **`gitops/infrastructure/postgres/BACKUP.md`**.
 
 **Two models (see [postgres-backup-strategy](postgres-backup-strategy.md)):**
 
 - **`dev-postgres`:** classic CNPG **`spec.backup.barmanObjectStore`** + **`ScheduledBackup`** (`method: barmanObjectStore`). Manifests under **`gitops/infrastructure/postgres/`**.
-- **`demo-app-db`:** **[Barman Cloud CNPG-I plugin](https://cloudnative-pg.io/plugin-barman-cloud/)** — **`ObjectStore`** CR + **`Cluster.spec.plugins`** (`barman-cloud.cloudnative-pg.io`) + **`ScheduledBackup`** (`method: plugin`). Operator: **`HelmRelease/plugin-barman-cloud`** (`gitops/operators/plugin-barman-cloud/`). App manifests: **`gitops/applications/base/postgres-cluster/`** + dev overlay (**`gitops/applications/environments/dev/major-upgrade-app/`** or **`demo-app/`** — same patches; active overlay is listed in **`environments/dev/kustomization.yaml`**).
+- **`demo-app-db`:** **[Barman Cloud CNPG-I plugin](https://cloudnative-pg.io/plugin-barman-cloud/)** — **`ObjectStore`** CR + **`Cluster.spec.plugins`** (`barman-cloud.cloudnative-pg.io`) + **`ScheduledBackup`** (`method: plugin`). Operator: **`HelmRelease/plugin-barman-cloud`** (`gitops/operators/plugin-barman-cloud/`). App manifests: **`gitops/applications/base/postgres-cluster/`** + active dev overlay (**`major-upgrade-app/`** → namespace **`major-upgrade-app`**, or **`demo-app/`** → **`app-dev`**).
 
 **Quick checks**
 
@@ -20,9 +20,10 @@ Create **`Secret/cnpg-s3-credentials`** (keys **`ACCESS_KEY_ID`**, **`ACCESS_SEC
 kubectl get scheduledbackup,backup -n postgres
 kubectl describe cluster dev-postgres -n postgres
 
-# Demo app — plugin path
-kubectl get objectstore,scheduledbackup,backup -n app-dev
-kubectl describe cluster demo-app-db -n app-dev
+# Demo app — plugin path (namespace matches active overlay)
+kubectl get objectstore,scheduledbackup,backup -n major-upgrade-app
+kubectl describe cluster demo-app-db -n major-upgrade-app
+# demo-app overlay: use -n app-dev
 kubectl get helmrelease plugin-barman-cloud -n cnpg-system
 ```
 

@@ -21,7 +21,7 @@ terraform init && terraform apply
 
 **DNS:** public Ingress names → **`workers_load_balancer_ipv4`**.
 
-**Object storage:** `object_storage_enabled = true` + keys → S3 bucket via **minio** provider; **`prevent_destroy`** on bucket. CNPG uses the bucket for **`dev-postgres/`** and **`demo-app-db/`** prefixes (classic **`barmanObjectStore`** vs Barman Cloud **`ObjectStore`** — **[postgres-backup-strategy](postgres-backup-strategy.md)**). Keys become **`cnpg-s3-credentials`** in Kubernetes (not applied by Terraform).
+**Object storage:** `object_storage_enabled = true` + keys → S3 bucket via **minio** provider; **`prevent_destroy`** on bucket. CNPG uses the bucket for **`dev-postgres/`**, **`major-upgrade-app/`**, and **`demo-app-db/`** prefixes (see **[postgres-backup-strategy](postgres-backup-strategy.md)**). Keys become **`cnpg-s3-credentials`** in Kubernetes (not applied by Terraform).
 
 **Ansible:** jump public IP + private node IPs → **`ansible/inventory/dev-test-cluster.ini`**.
 

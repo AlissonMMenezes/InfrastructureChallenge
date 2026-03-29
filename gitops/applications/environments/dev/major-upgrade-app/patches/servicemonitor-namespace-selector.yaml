@@ -1,0 +1,4 @@
+# ServiceMonitor spec still references app-dev after base merge; align with this overlay namespace.
+- op: replace
+  path: /spec/namespaceSelector/matchNames/0
+  value: major-upgrade-app

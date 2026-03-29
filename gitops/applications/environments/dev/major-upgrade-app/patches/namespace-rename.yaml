@@ -1,0 +1,4 @@
+# Base demo-app defines Namespace app-dev; this overlay uses major-upgrade-app.
+- op: replace
+  path: /metadata/name
+  value: major-upgrade-app

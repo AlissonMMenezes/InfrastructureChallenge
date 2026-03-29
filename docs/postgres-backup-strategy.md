@@ -7,9 +7,9 @@ There are **two CNPG integration styles** in-tree:
 | Cluster | Namespace | How Barman talks to S3 |
 |---------|-----------|-------------------------|
 | **`dev-postgres`** | `postgres` | **Embedded** config on the **`Cluster`**: **`spec.backup.barmanObjectStore`** (classic CNPG). |
-| **`demo-app-db`** | `app-dev` | **Barman Cloud CNPG-I plugin**: **`ObjectStore`** CR (`barmancloud.cnpg.io`) + **`Cluster.spec.plugins`** + **`HelmRelease/plugin-barman-cloud`** in `cnpg-system`. |
+| **`demo-app-db`** | `major-upgrade-app` or `app-dev` | **Barman Cloud CNPG-I plugin**: **`ObjectStore`** CR (`barmancloud.cnpg.io`) + **`Cluster.spec.plugins`** + **`HelmRelease/plugin-barman-cloud`** in `cnpg-system` (see **`environments/dev/kustomization.yaml`**). |
 
-Both paths store data under the same bucket with **different prefixes** (`dev-postgres/`, `demo-app-db/`). Credentials are the same **Kubernetes Secret** shape: **`cnpg-s3-credentials`** in the cluster namespace — **[cnpg-backup-secrets](cnpg-backup-secrets.md)**.
+Both paths store data under the same bucket with **different prefixes** (`dev-postgres/`, **`major-upgrade-app/`**, **`demo-app-db/`**). Credentials are the same **Kubernetes Secret** shape: **`cnpg-s3-credentials`** in the cluster namespace — **[cnpg-backup-secrets](cnpg-backup-secrets.md)**.
 
 ---
 
@@ -41,7 +41,7 @@ Components:
 | WAL archive | Plugin sidecar / **`isWALArchiver`** using the same **`ObjectStore`** configuration |
 | Retention | **`ObjectStore.spec.retentionPolicy`** (+ bucket lifecycle if you add it) |
 | Credentials | **`ObjectStore.spec.configuration.s3Credentials`** → **`Secret/cnpg-s3-credentials`** (same keys as classic CNPG) |
-| Operator view | **`kubectl get backup,scheduledbackup -n app-dev`**, **`kubectl get objectstore -n app-dev`**, **`kubectl describe cluster demo-app-db -n app-dev`** |
+| Operator view | **`kubectl get backup,scheduledbackup`**, **`kubectl get objectstore`**, **`kubectl describe cluster demo-app-db`** in **`major-upgrade-app`** or **`app-dev`** (match the active overlay) |
 
 **Restore (outline):** treat recovery like any CNPG cluster from object storage, but the **declarative** side must include the **same plugin + `ObjectStore`** (or equivalent recovery stanza) so the instance manager can read **barman-cloud** layout in the bucket. Typical flow: **pause writers** → define a **new** **`Cluster`** (or clone) with **`bootstrap.recovery`** from a **`Backup`** CR or recovery source that matches your scenario → **verify** data → **point `demo-api`** at the new DB URI if the service name changed → resume traffic. Authoritative procedure: **[CNPG recovery](https://cloudnative-pg.io/documentation/current/recovery/)** and **[Barman Cloud plugin](https://cloudnative-pg.io/plugin-barman-cloud/)** docs for plugin-specific fields.
 

@@ -1,10 +1,9 @@
-# Plugin-based backup schedule (Barman Cloud CNPG-I). Requires plugin-barman-cloud + matching Cluster plugins/ObjectStore.
-# Same bucket/prefix as ObjectStore.spec.configuration.destinationPath (see infrastructure/postgres/BACKUP.md).
+# Plugin-based backup; cluster and credentials Secret live in major-upgrade-app.
 apiVersion: postgresql.cnpg.io/v1
 kind: ScheduledBackup
 metadata:
   name: demo-app-db-daily
-  namespace: app-dev
+  namespace: major-upgrade-app
 spec:
   schedule: "0 */5 * * * *"
   backupOwnerReference: self

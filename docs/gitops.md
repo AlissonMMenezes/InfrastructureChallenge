@@ -76,7 +76,7 @@ GitOps: **`gitops/infrastructure/openbao-kubernetes-auth/`** — init Job → **
 
 ## Demo app + Postgres
 
-CNPG **`Cluster/demo-app-db`** in **`app-dev`**, **`ObjectStore`** for Barman Cloud, **`ScheduledBackup`** (`method: plugin`) → **`Secret/demo-app-db-app`** (`uri`) → **`DATABASE_URL`** on **`Deployment/demo-api`**. See **[demo-app](demo-app.md)** and **[postgres-backup-strategy](postgres-backup-strategy.md)**.
+CNPG **`Cluster/demo-app-db`** (namespace **`major-upgrade-app`** or **`app-dev`** depending on overlay), **`ObjectStore`**, **`ScheduledBackup`** (`method: plugin`) → **`Secret/demo-app-db-app`** (`uri`) → **`DATABASE_URL`** on **`Deployment/demo-api`**. See **[demo-app](demo-app.md)** and **[postgres-backup-strategy](postgres-backup-strategy.md)**.
 
 ## CI images
 

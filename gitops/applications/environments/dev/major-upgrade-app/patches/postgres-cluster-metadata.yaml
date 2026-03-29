@@ -1,10 +1,10 @@
-# JSON6902: renames base Cluster (app-postgres/app) to demo-app-db / app-dev.
+# JSON6902: renames base Cluster to major-upgrade-app-db in namespace major-upgrade-app.
 - op: replace
   path: /metadata/name
-  value: demo-app-db
+  value: major-upgrade-app-db
 - op: replace
   path: /metadata/namespace
-  value: app-dev
+  value: major-upgrade-app
 - op: replace
   path: /metadata/labels/app.kubernetes.io~1name
-  value: demo-app-db
+  value: major-upgrade-app-db

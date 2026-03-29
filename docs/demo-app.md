@@ -2,7 +2,7 @@
 
 **Code:** `demo-app/` — Go, **`cmd/demo-api`**, **`internal/{config,db,httpserver}`** (embedded templates + OpenAPI). **Image:** `.github/workflows/demo-app-image.yml` → **GHCR** `ghcr.io/<owner-lower>/demo-app`.
 
-**GitOps:** base `gitops/applications/base/demo-app/`; dev overlay is selected in **`gitops/applications/environments/dev/kustomization.yaml`** (currently **`major-upgrade-app/`** — Postgres **17** operand; **`demo-app/`** is an alternate overlay with the same layout).
+**GitOps:** base `gitops/applications/base/demo-app/`; dev overlay is selected in **`gitops/applications/environments/dev/kustomization.yaml`**. **`major-upgrade-app/`** uses namespace **`major-upgrade-app`**, Postgres **17**, S3 prefix **`major-upgrade-app/`**; **`demo-app/`** uses **`app-dev`** and prefix **`demo-app-db/`**. Flux **ImageRepository/ImagePolicy/ImageUpdateAutomation** for this repo stay in **`flux-system`** (**`major-upgrade-flux-image-automation.yaml`** when the major-upgrade overlay is active).
 
 ## HTTP
 
@@ -19,8 +19,8 @@ Boot: **`CREATE TABLE IF NOT EXISTS items`**.
 
 ## Postgres
 
-1. CNPG **`Cluster/demo-app-db`** in **`app-dev`** — operand image **`spec.imageName`** (e.g. **`ghcr.io/cloudnative-pg/postgresql:17.6-system-trixie`** in **`gitops/applications/environments/dev/major-upgrade-app/patches/postgres-cluster-spec.yaml`** when that overlay is active).  
-2. **Barman Cloud (CNPG-I):** **`ObjectStore/demo-app-db-store`** (`barmancloud.cnpg.io`) in **`app-dev`** holds S3 path (**`s3://dev-test-cnpg-backups/demo-app-db/`**), credentials, WAL/data options. **`Cluster.spec.plugins`** references **`barman-cloud.cloudnative-pg.io`** and **`parameters.barmanObjectName: demo-app-db-store`**. Base + patches: **`gitops/applications/base/postgres-cluster/`**, **`gitops/applications/environments/dev/<overlay>/patches/`** (same patch set under **`demo-app/`** or **`major-upgrade-app/`**).  
+1. CNPG **`Cluster/demo-app-db`** in **`major-upgrade-app`** (or **`app-dev`** with the **`demo-app`** overlay) — operand image **`spec.imageName`** (e.g. **`ghcr.io/cloudnative-pg/postgresql:17.6-system-trixie`** in **`major-upgrade-app/patches/postgres-cluster-spec.yaml`**).  
+2. **Barman Cloud (CNPG-I):** **`ObjectStore/demo-app-db-store`** in the **same namespace** as the cluster; S3 path **`s3://dev-test-cnpg-backups/major-upgrade-app/`** (major-upgrade overlay) or **`.../demo-app-db/`** (**demo-app** overlay). **`Cluster.spec.plugins`** → **`barman-cloud.cloudnative-pg.io`**, **`parameters.barmanObjectName: demo-app-db-store`**. Base **`gitops/applications/base/postgres-cluster/`** + overlay **`patches/`**.  
 3. **`ScheduledBackup/demo-app-db-daily`** — **`method: plugin`**, **`pluginConfiguration.name: barman-cloud.cloudnative-pg.io`**. Requires **`HelmRelease/plugin-barman-cloud`** in **`cnpg-system`**.  
 4. **`Secret/demo-app-db-app`**, key **`uri`**.  
 5. **`Deployment`** sets **`DATABASE_URL`** from that secret.  
@@ -32,4 +32,4 @@ Until the secret exists, pods may stay **CreateContainerConfigError**. Network: 
 
 **Local:** `go run ./cmd/demo-api` from `demo-app/` without `DATABASE_URL` (defaults to localhost Postgres).
 
-**Backups:** S3 prefix **`demo-app-db/`** via **`ObjectStore`** + plugin; Secret **`cnpg-s3-credentials`** in **`app-dev`** — **[cnpg-backup-secrets](cnpg-backup-secrets.md)**.
+**Backups:** S3 prefix per overlay (**`major-upgrade-app/`** vs **`demo-app-db/`**); Secret **`cnpg-s3-credentials`** in the app namespace — **[cnpg-backup-secrets](cnpg-backup-secrets.md)**.

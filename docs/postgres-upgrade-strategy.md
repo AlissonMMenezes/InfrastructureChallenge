@@ -3,7 +3,7 @@
 | Cluster | Namespace | Manifest |
 |---------|-----------|----------|
 | `dev-postgres` | `postgres` | `gitops/infrastructure/postgres/cluster.yaml` |
-| `demo-app-db` | `app-dev` | Base: `postgres-cluster/` (`cluster.yaml`, `objectstore.yaml`); dev overlay patches under `environments/dev/<overlay>/patches/` (active overlay: **`kustomization.yaml`** — currently **`major-upgrade-app`** for PG **17** operand) |
+| `demo-app-db` | `major-upgrade-app` (or `app-dev` with **`demo-app`** overlay) | Base: `postgres-cluster/` (`cluster.yaml`, `objectstore.yaml`); overlay patches under `environments/dev/<overlay>/patches/` (**`kustomization.yaml`** selects overlay; **`major-upgrade-app`** → PG **17**) |
 
 Operators: **`HelmRelease/cloudnative-pg`**, **`HelmRelease/plugin-barman-cloud`** (`gitops/operators/`). **Backup models:** two paths in-repo — see **[postgres-backup-strategy](postgres-backup-strategy.md)**. **Authoritative upgrade doc:** [CNPG upgrading](https://cloudnative-pg.io/docs/1.28/installation_upgrade#upgrades).
 

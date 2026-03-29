@@ -1,6 +1,6 @@
 # CNPG backups (Hetzner Object Storage)
 
-**Bucket:** **`dev-test-cnpg-backups`** (Terraform object-storage module in dev). **Prefixes:** **`dev-postgres/`**, **`demo-app-db/`**.
+**Bucket:** **`dev-test-cnpg-backups`** (Terraform object-storage module in dev). **Prefixes:** **`dev-postgres/`**, **`major-upgrade-app/`** ( **`major-upgrade-app`** namespace / overlay), **`demo-app-db/`** (**`demo-app`** overlay / **`app-dev`**).
 
 **Secret:** **`cnpg-s3-credentials`** in each namespace — keys **`ACCESS_KEY_ID`**, **`ACCESS_SECRET_KEY`** — **[`docs/cnpg-backup-secrets.md`](../../docs/cnpg-backup-secrets.md)**. **Strategy & restore concepts:** **[`docs/postgres-backup-strategy.md`](../../docs/postgres-backup-strategy.md)**. **Upgrades:** **[`docs/postgres-upgrade-strategy.md`](../../docs/postgres-upgrade-strategy.md)**.
 
@@ -17,15 +17,15 @@ WAL archiving and scheduled base backups use the **built-in** CNPG Barman object
 
 ---
 
-## `demo-app-db` (namespace `app-dev`) — Barman Cloud CNPG-I plugin
+## `demo-app-db` (namespace `major-upgrade-app` or `app-dev`) — Barman Cloud CNPG-I plugin
 
 Requires **`HelmRelease/plugin-barman-cloud`** in **`cnpg-system`** (`gitops/operators/plugin-barman-cloud/`) and **cert-manager**.
 
 | Piece | Git path |
 |-------|-----------|
-| **`ObjectStore`** CR | Base: `gitops/applications/base/postgres-cluster/objectstore.yaml` · Dev patches: `gitops/applications/environments/dev/demo-app/patches/postgres-objectstore-metadata.yaml` |
-| **`Cluster`** plugins | Base: `.../postgres-cluster/cluster.yaml` · Dev: `.../patches/postgres-cluster-spec.yaml` (plugin name + **`barmanObjectName`**) |
-| **`ScheduledBackup`** | `gitops/applications/environments/dev/demo-app/cnpg-scheduledbackup.yaml` — **`method: plugin`**, **`pluginConfiguration.name: barman-cloud.cloudnative-pg.io`** |
+| **`ObjectStore`** CR | Base: `gitops/applications/base/postgres-cluster/objectstore.yaml` · Patches: **`major-upgrade-app/patches/postgres-objectstore-metadata.yaml`** or **`demo-app/patches/...`** |
+| **`Cluster`** plugins | Base: `postgres-cluster/cluster.yaml` · Overlay: **`postgres-cluster-spec.yaml`** |
+| **`ScheduledBackup`** | **`major-upgrade-app/cnpg-scheduledbackup.yaml`** or **`demo-app/cnpg-scheduledbackup.yaml`** — **`method: plugin`**, **`pluginConfiguration.name: barman-cloud.cloudnative-pg.io`** |
 
 **Backup flow:** CNPG triggers backups through the **plugin**; the plugin reads **`ObjectStore.spec.configuration`** (S3 path, credentials secret, WAL/data options) and uses **barman-cloud** tooling. WAL archiving is enabled via **`isWALArchiver: true`** on the plugin entry.
 
@@ -38,8 +38,9 @@ Requires **`HelmRelease/plugin-barman-cloud`** in **`cnpg-system`** (`gitops/ope
 ```bash
 kubectl create secret generic cnpg-s3-credentials -n postgres \
   --from-literal=ACCESS_KEY_ID='...' --from-literal=ACCESS_SECRET_KEY='...'
-kubectl create secret generic cnpg-s3-credentials -n app-dev \
+kubectl create secret generic cnpg-s3-credentials -n major-upgrade-app \
   --from-literal=ACCESS_KEY_ID='...' --from-literal=ACCESS_SECRET_KEY='...'
+# demo-app overlay: repeat for namespace app-dev
 ```
 
 ## Sanity checks
@@ -48,8 +49,8 @@ kubectl create secret generic cnpg-s3-credentials -n app-dev \
 kubectl get scheduledbackup,backup -n postgres
 kubectl describe cluster dev-postgres -n postgres
 
-kubectl get objectstore,scheduledbackup,backup -n app-dev
-kubectl describe cluster demo-app-db -n app-dev
+kubectl get objectstore,scheduledbackup,backup -n major-upgrade-app
+kubectl describe cluster demo-app-db -n major-upgrade-app
 ```
 
 **Schedules in Git** use a **6-field cron** (includes seconds); dev cadence is aggressive — tighten for production.

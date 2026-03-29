@@ -5,7 +5,7 @@ Workloads that talk to S3 for Postgres backups need **`Secret/cnpg-s3-credential
 - **Classic CNPG** (`dev-postgres`): referenced from **`Cluster.spec.backup.barmanObjectStore.s3Credentials`** ([object stores appendix](https://cloudnative-pg.io/documentation/current/appendixes/object_stores/)).
 - **Barman Cloud plugin** (`demo-app-db`): the **`ObjectStore`** CR references the same secret name/keys under **`spec.configuration.s3Credentials`** — the Secret shape is unchanged.
 
-**Clusters in this repo:** `dev-postgres` → namespace **`postgres`**; `demo-app-db` → **`app-dev`**. Same bucket **`dev-test-cnpg-backups`**, different prefixes — **`gitops/infrastructure/postgres/BACKUP.md`**, **[postgres-backup-strategy](postgres-backup-strategy.md)**.
+**Clusters in this repo:** `dev-postgres` → namespace **`postgres`**; `demo-app-db` → **`major-upgrade-app`** when the **`major-upgrade-app`** GitOps overlay is active, or **`app-dev`** when the **`demo-app`** overlay is used. Same bucket **`dev-test-cnpg-backups`**, different prefixes — **`gitops/infrastructure/postgres/BACKUP.md`**, **[postgres-backup-strategy](postgres-backup-strategy.md)**.
 
 **Create** (replace values; avoid logging secrets):
 
@@ -13,13 +13,14 @@ Workloads that talk to S3 for Postgres backups need **`Secret/cnpg-s3-credential
 kubectl create secret generic cnpg-s3-credentials -n postgres \
   --from-literal=ACCESS_KEY_ID='...' \
   --from-literal=ACCESS_SECRET_KEY='...'
-kubectl create secret generic cnpg-s3-credentials -n app-dev \
+kubectl create secret generic cnpg-s3-credentials -n major-upgrade-app \
   --from-literal=ACCESS_KEY_ID='...' \
   --from-literal=ACCESS_SECRET_KEY='...'
+# If using the demo-app overlay instead: use namespace app-dev.
 ```
 
 **Rotate:** delete the secret in the namespace, recreate. Keys: Hetzner Console → Object Storage → S3 credentials.
 
-**Verify:** `kubectl get secret cnpg-s3-credentials -n postgres` (and `app-dev`); `kubectl describe cluster dev-postgres -n postgres` and `kubectl describe cluster demo-app-db -n app-dev`; for the plugin path also `kubectl get objectstore -n app-dev`.
+**Verify:** `kubectl get secret cnpg-s3-credentials -n postgres` (and `major-upgrade-app` or `app-dev`); `kubectl describe cluster dev-postgres -n postgres` and `kubectl describe cluster demo-app-db -n major-upgrade-app` (or `-n app-dev`); for the plugin path also `kubectl get objectstore -n major-upgrade-app`.
 
 Declarative: use **`stringData`** in a manifest only via SOPS/SealedSecrets/ESO — do not commit plaintext.
