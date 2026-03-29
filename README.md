@@ -23,11 +23,20 @@ This Project was developed with the support of  [Cursor](https://cursor.com/).
 
 Full documentation index (including Terraform modules, operators, and NAT): **[docs/README.md](docs/README.md)**.
 
-## Stack (short)
+## Stack
 
-- Kubernetes: **kubeadm**, **Calico**, **Traefik**, **cert-manager**, **CloudNativePG**, **kube-prometheus-stack**, optional **OpenBao** + **External Secrets**.
-- Stateful backups: S3-compatible (**Hetzner Object Storage**); **`dev-postgres`** uses embedded **`barmanObjectStore`**; **`demo-app-db`** uses Barman Cloud CNPG-I (**`ObjectStore`** + **`plugin-barman-cloud`**). App DB auth via CNPG **`Secret`** / ESO where wired.
-- **demo-api** image: GHCR (`.github/workflows/demo-app-image.yml`); image path must use a **lowercase** owner segment for OCI.
+- Kubernetes: 
+  - **kubeadm**
+  - **Calico**
+  - **Traefik**
+  - **cert-manager**
+  - **CloudNativePG**
+  - **kube-prometheus-stack**
+  - optional
+    - **OpenBao**
+    - **External Secrets**
+- Stateful backups: S3-compatible (**Hetzner Object Storage**);
+- **demo-api** image: GHCR (`.github/workflows/demo-app-image.yml`);
 
 ---
 
