@@ -45,7 +45,7 @@ Argo CD was replaced by Flux Helm/Kustomize resources; no Argo manifests in this
 |-------|------|------|
 | Operators | `gitops/operators/` | Helm: CNPG, **plugin-barman-cloud**, cert-manager, monitoring, OpenBao, ESO, … |
 | Infrastructure | `gitops/infrastructure/` | ClusterIssuer, Traefik, Postgres clusters, OpenBao auth Jobs, ingress |
-| Applications | `gitops/applications/environments/dev/` | App overlays (e.g. demo-app) |
+| Applications | `gitops/applications/environments/dev/` | App overlays (**`major-upgrade-app/`**, **`demo-app/`** — one active in **`kustomization.yaml`**) |
 
 **`dependsOn`:** `infrastructure` after `operators`; `applications` after `operators` + `infrastructure` (CRDs and issuers before app ingress).
 
@@ -80,4 +80,4 @@ CNPG **`Cluster/demo-app-db`** in **`app-dev`**, **`ObjectStore`** for Barman Cl
 
 ## CI images
 
-**`.github/workflows/demo-app-image.yml`** → **GHCR** `ghcr.io/<owner-lower>/demo-app`. Match **`ImageRepository`** and Deployment image. Optional Flux **ImageUpdateAutomation** in the dev demo-app overlay — token/bootstrap notes in **[ansible.md](ansible.md)**.
+**`.github/workflows/demo-app-image.yml`** → **GHCR** `ghcr.io/<owner-lower>/demo-app`. Match **`ImageRepository`** and Deployment image. Optional Flux **ImageUpdateAutomation** in the active dev overlay (**`major-upgrade-app/`** or **`demo-app/`**) — token/bootstrap notes in **[ansible.md](ansible.md)**.

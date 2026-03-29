@@ -31,9 +31,9 @@ Both paths store data under the same bucket with **different prefixes** (`dev-po
 Components:
 
 1. **`HelmRelease/plugin-barman-cloud`** (`gitops/operators/plugin-barman-cloud/`) — CNPG-I plugin deployment in **`cnpg-system`** (needs **cert-manager** and **CloudNativePG ≥ 1.26**).
-2. **`ObjectStore`** (`barmancloud.cnpg.io/v1`) — S3 **destination**, WAL/data compression, **`spec.retentionPolicy`**. Base: `gitops/applications/base/postgres-cluster/objectstore.yaml`; dev renames/prefix patch: `gitops/applications/environments/dev/demo-app/patches/postgres-objectstore-metadata.yaml`.
+2. **`ObjectStore`** (`barmancloud.cnpg.io/v1`) — S3 **destination**, WAL/data compression, **`spec.retentionPolicy`**. Base: `gitops/applications/base/postgres-cluster/objectstore.yaml`; dev renames/prefix patch: `gitops/applications/environments/dev/<overlay>/patches/postgres-objectstore-metadata.yaml` (e.g. **`major-upgrade-app`** or **`demo-app`**).
 3. **`Cluster.spec.plugins`** — entry **`name: barman-cloud.cloudnative-pg.io`**, **`isWALArchiver: true`**, **`parameters.barmanObjectName`** = **`ObjectStore` metadata.name** (same namespace as the **`Cluster`**). Base + dev spec patch: `postgres-cluster/cluster.yaml`, `.../patches/postgres-cluster-spec.yaml`.
-4. **`ScheduledBackup`**, **`method: plugin`**, **`pluginConfiguration.name: barman-cloud.cloudnative-pg.io`** — `gitops/applications/environments/dev/demo-app/cnpg-scheduledbackup.yaml`.
+4. **`ScheduledBackup`**, **`method: plugin`**, **`pluginConfiguration.name: barman-cloud.cloudnative-pg.io`** — `gitops/applications/environments/dev/<overlay>/cnpg-scheduledbackup.yaml` (same file in **`demo-app/`** and **`major-upgrade-app/`**).
 
 | Concept | Where it lives |
 |---------|----------------|

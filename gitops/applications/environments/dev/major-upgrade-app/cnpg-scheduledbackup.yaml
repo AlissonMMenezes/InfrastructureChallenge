@@ -1,0 +1,15 @@
+# Plugin-based backup schedule (Barman Cloud CNPG-I). Requires plugin-barman-cloud + matching Cluster plugins/ObjectStore.
+# Same bucket/prefix as ObjectStore.spec.configuration.destinationPath (see infrastructure/postgres/BACKUP.md).
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: demo-app-db-daily
+  namespace: app-dev
+spec:
+  schedule: "0 */5 * * * *"
+  backupOwnerReference: self
+  cluster:
+    name: demo-app-db
+  method: plugin
+  pluginConfiguration:
+    name: barman-cloud.cloudnative-pg.io

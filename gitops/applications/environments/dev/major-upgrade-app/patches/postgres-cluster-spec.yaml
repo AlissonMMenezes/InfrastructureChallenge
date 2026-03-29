@@ -1,0 +1,15 @@
+# Strategic merge after metadata patch: operand image, HA size, plugin → ObjectStore name in this namespace.
+# Postgres major line for upgrade testing (PG 17); see https://cloudnative-pg.io/documentation/current/image_catalog/
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: demo-app-db
+  namespace: app-dev
+spec:
+  imageName: ghcr.io/cloudnative-pg/postgresql:17.6-system-trixie
+  instances: 3
+  plugins:
+    - name: barman-cloud.cloudnative-pg.io
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: demo-app-db-store

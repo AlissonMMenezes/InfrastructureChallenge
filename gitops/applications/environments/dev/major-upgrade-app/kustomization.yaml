@@ -1,0 +1,36 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../../base/demo-app/
+  - cnpg-scheduledbackup.yaml
+  - image-automation.yaml
+
+images:
+  - name: ghcr.io/alissonmmenezes/demo-app # {"$imagepolicy": "flux-system:demo-app:name"}
+    newTag: 0.1.13 # {"$imagepolicy": "flux-system:demo-app:tag"}
+
+# JSON6902 entries need an explicit target; postgres-cluster-spec matches by kind/name/namespace in the patch.
+patches:
+  - path: patches/ingress.yaml
+    target:
+      group: networking.k8s.io
+      version: v1
+      kind: Ingress
+      name: demo-api
+      namespace: app-dev
+  - path: patches/postgres-cluster-metadata.yaml
+    target:
+      group: postgresql.cnpg.io
+      version: v1
+      kind: Cluster
+      name: app-postgres
+      namespace: app
+  - path: patches/postgres-objectstore-metadata.yaml
+    target:
+      group: barmancloud.cnpg.io
+      version: v1
+      kind: ObjectStore
+      name: app-postgres-store
+      namespace: app
+  - path: patches/postgres-cluster-spec.yaml

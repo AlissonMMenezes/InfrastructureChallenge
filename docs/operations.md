@@ -11,7 +11,7 @@ Create **`Secret/cnpg-s3-credentials`** (keys **`ACCESS_KEY_ID`**, **`ACCESS_SEC
 **Two models (see [postgres-backup-strategy](postgres-backup-strategy.md)):**
 
 - **`dev-postgres`:** classic CNPG **`spec.backup.barmanObjectStore`** + **`ScheduledBackup`** (`method: barmanObjectStore`). Manifests under **`gitops/infrastructure/postgres/`**.
-- **`demo-app-db`:** **[Barman Cloud CNPG-I plugin](https://cloudnative-pg.io/plugin-barman-cloud/)** — **`ObjectStore`** CR + **`Cluster.spec.plugins`** (`barman-cloud.cloudnative-pg.io`) + **`ScheduledBackup`** (`method: plugin`). Operator: **`HelmRelease/plugin-barman-cloud`** (`gitops/operators/plugin-barman-cloud/`). App manifests: **`gitops/applications/base/postgres-cluster/`** + dev overlay **`gitops/applications/environments/dev/demo-app/`**.
+- **`demo-app-db`:** **[Barman Cloud CNPG-I plugin](https://cloudnative-pg.io/plugin-barman-cloud/)** — **`ObjectStore`** CR + **`Cluster.spec.plugins`** (`barman-cloud.cloudnative-pg.io`) + **`ScheduledBackup`** (`method: plugin`). Operator: **`HelmRelease/plugin-barman-cloud`** (`gitops/operators/plugin-barman-cloud/`). App manifests: **`gitops/applications/base/postgres-cluster/`** + dev overlay (**`gitops/applications/environments/dev/major-upgrade-app/`** or **`demo-app/`** — same patches; active overlay is listed in **`environments/dev/kustomization.yaml`**).
 
 **Quick checks**
 

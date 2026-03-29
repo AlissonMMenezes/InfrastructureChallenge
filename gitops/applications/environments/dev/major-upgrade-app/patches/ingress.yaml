@@ -1,0 +1,6 @@
+- op: replace
+  path: /spec/rules/0/host
+  value: major-upgrade-app.alissonmachado.com.br
+- op: replace
+  path: /spec/tls/0/hosts/0
+  value: major-upgrade-app.alissonmachado.com.br
